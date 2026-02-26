@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Data = Record<string, string>;
@@ -77,7 +77,7 @@ function InvoiceBlock({
   );
 }
 
-export default function PreviewPage() {
+function PreviewPageContent() {
   const sp = useSearchParams();
   const [status, setStatus] = useState("");
 
@@ -273,7 +273,6 @@ export default function PreviewPage() {
   return (
     <main className="ff-shell">
       <div className="w-full max-w-5xl">
-        {/* Top bar */}
         <div className="ff-card px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between gap-3">
             <button
@@ -296,7 +295,6 @@ export default function PreviewPage() {
           </div>
         </div>
 
-        {/* Explainer */}
         <div className="mt-6 ff-panel-warm p-4 sm:p-6">
           <div className="text-center font-extrabold text-black/85">
             Check the draft before you continue
@@ -309,11 +307,9 @@ export default function PreviewPage() {
           </p>
         </div>
 
-        {/* Document preview */}
         <div className="mt-6 rounded-[28px] border border-black/10 bg-white/70 p-3 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
           <div className="mx-auto w-full max-w-[900px] rounded-[10px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
             <div className="px-6 py-7 sm:px-10 sm:py-10">
-              {/* document top */}
               <div className="flex flex-col gap-8 border-b border-black/10 pb-8 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="text-[26px] font-black tracking-tight text-black/88">
@@ -333,7 +329,6 @@ export default function PreviewPage() {
                 </div>
               </div>
 
-              {/* seller / buyer */}
               <div className="grid grid-cols-1 gap-8 border-b border-black/10 py-8 sm:grid-cols-2">
                 <InvoiceBlock title="From">
                   <div className="font-bold text-black/88">
@@ -351,14 +346,6 @@ export default function PreviewPage() {
                   {data.showUTR === "yes" && data.sellerUTR ? (
                     <div>UTR: {data.sellerUTR}</div>
                   ) : null}
-
-                  {!data.sellerEmail &&
-                  !data.sellerPhone &&
-                  !sellerAddress &&
-                  !(data.vatRegistered === "yes" && data.sellerVat) &&
-                  !(data.showUTR === "yes" && data.sellerUTR) ? (
-                    <div className="text-black/35 italic">No other seller details added yet</div>
-                  ) : null}
                 </InvoiceBlock>
 
                 <InvoiceBlock title="Bill to">
@@ -372,17 +359,9 @@ export default function PreviewPage() {
                   {buyerAddress ? <div>{buyerAddress}</div> : null}
                   {data.buyerVat ? <div>VAT: {data.buyerVat}</div> : null}
                   {data.buyerEInvoiceId ? <div>Delivery ID: {data.buyerEInvoiceId}</div> : null}
-
-                  {!data.buyerEmail &&
-                  !buyerAddress &&
-                  !data.buyerVat &&
-                  !data.buyerEInvoiceId ? (
-                    <div className="text-black/35 italic">No other buyer details added yet</div>
-                  ) : null}
                 </InvoiceBlock>
               </div>
 
-              {/* line item table */}
               <div className="py-8">
                 <div className="overflow-x-auto">
                   <table className="w-full border-separate border-spacing-0">
@@ -412,11 +391,7 @@ export default function PreviewPage() {
                           )}
                         </td>
                         <td className="border-b border-black/8 py-4 text-right align-top text-[14px] text-black/80">
-                          {data.netAmount ? (
-                            displayNet
-                          ) : (
-                            <span className="text-black/35 italic">No amount added yet</span>
-                          )}
+                          {data.netAmount ? displayNet : <span className="text-black/35 italic">No amount added yet</span>}
                         </td>
                         <td className="border-b border-black/8 py-4 text-right align-top text-[14px] text-black/80">
                           {data.vatRegistered === "yes" ? (
@@ -429,11 +404,7 @@ export default function PreviewPage() {
                           )}
                         </td>
                         <td className="border-b border-black/8 py-4 text-right align-top text-[14px] font-semibold text-black/88">
-                          {data.netAmount || data.totalAmount ? (
-                            displayTotal
-                          ) : (
-                            <span className="text-black/35 italic">No total yet</span>
-                          )}
+                          {data.netAmount || data.totalAmount ? displayTotal : <span className="text-black/35 italic">No total yet</span>}
                         </td>
                       </tr>
                     </tbody>
@@ -441,7 +412,6 @@ export default function PreviewPage() {
                 </div>
               </div>
 
-              {/* totals + extra info */}
               <div className="grid grid-cols-1 gap-8 border-b border-black/10 pb-8 sm:grid-cols-[1.1fr_0.9fr]">
                 <div className="space-y-6">
                   <InvoiceBlock title="Payment details">
@@ -452,16 +422,6 @@ export default function PreviewPage() {
                     {data.accountNumber ? <div>Account number: {data.accountNumber}</div> : null}
                     {data.iban ? <div>IBAN: {data.iban}</div> : null}
                     {data.swift ? <div>SWIFT/BIC: {data.swift}</div> : null}
-
-                    {!data.paymentMethod &&
-                    !data.bankName &&
-                    !data.accountName &&
-                    !data.sortCode &&
-                    !data.accountNumber &&
-                    !data.iban &&
-                    !data.swift ? (
-                      <div className="text-black/35 italic">No payment details added yet</div>
-                    ) : null}
                   </InvoiceBlock>
 
                   <InvoiceBlock title="Notes">
@@ -478,11 +438,7 @@ export default function PreviewPage() {
                     <div className="flex items-center justify-between border-b border-black/8 py-2 text-sm text-black/75">
                       <span>Net amount</span>
                       <span className="font-semibold text-black/88">
-                        {data.netAmount ? (
-                          displayNet
-                        ) : (
-                          <span className="text-black/35 italic">No amount added yet</span>
-                        )}
+                        {data.netAmount ? displayNet : <span className="text-black/35 italic">No amount added yet</span>}
                       </span>
                     </div>
 
@@ -494,18 +450,13 @@ export default function PreviewPage() {
                     <div className="flex items-center justify-between pt-3 text-[16px] font-black text-black/88">
                       <span>Total</span>
                       <span>
-                        {data.netAmount || data.totalAmount ? (
-                          displayTotal
-                        ) : (
-                          <span className="text-black/35 italic">No total yet</span>
-                        )}
+                        {data.netAmount || data.totalAmount ? displayTotal : <span className="text-black/35 italic">No total yet</span>}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* footer note on document */}
               <div className="pt-8 text-[12px] leading-6 text-black/48">
                 This is a visual preview only. The real e-invoice is a structured data file used by
                 accounting systems, so the presentation of this page is only for checking the
@@ -515,7 +466,6 @@ export default function PreviewPage() {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-6 ff-panel-warm p-4 sm:p-6">
           <div className="text-center font-extrabold text-black/85">Choose what to do next</div>
           <p className="mt-2 text-center text-sm leading-6 text-black/65">
@@ -580,5 +530,13 @@ export default function PreviewPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function PreviewPage() {
+  return (
+    <Suspense fallback={<main className="ff-shell"><div className="w-full max-w-5xl text-center py-20 text-black/60">Loading preview…</div></main>}>
+      <PreviewPageContent />
+    </Suspense>
   );
 }
