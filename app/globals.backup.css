@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  position: relative;
+
+  /* soft sky */
+  background: linear-gradient(180deg, #bfe9ff 0%, #dff6ff 45%, #fffdf6 100%);
+}
+
+/* wallpaper layer (behind everything) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+
+  background:
+    /* tiny sparkles */
+    radial-gradient(circle, rgba(255,255,255,0.95) 2px, transparent 3px) 10% 18% / 180px 180px,
+    radial-gradient(circle, rgba(255,255,255,0.85) 1.5px, transparent 3px) 60% 12% / 200px 200px,
+    radial-gradient(circle, rgba(255,255,255,0.85) 1.5px, transparent 3px) 82% 28% / 220px 220px,
+
+    /* clouds (left) */
+    radial-gradient(ellipse at 20% 18%, rgba(255,255,255,0.97) 0 60px, transparent 62px),
+    radial-gradient(ellipse at 26% 20%, rgba(255,255,255,0.97) 0 70px, transparent 72px),
+    radial-gradient(ellipse at 33% 18%, rgba(255,255,255,0.97) 0 55px, transparent 57px),
+
+    /* clouds (right) */
+    radial-gradient(ellipse at 72% 16%, rgba(255,255,255,0.97) 0 55px, transparent 57px),
+    radial-gradient(ellipse at 78% 18%, rgba(255,255,255,0.97) 0 70px, transparent 72px),
+    radial-gradient(ellipse at 86% 16%, rgba(255,255,255,0.97) 0 60px, transparent 62px),
+
+    /* rolling hills (bottom) */
+    radial-gradient(ellipse at 18% 112%, #c9f7c3 0 54%, transparent 55%),
+    radial-gradient(ellipse at 52% 114%, #b6f0b1 0 58%, transparent 59%),
+    radial-gradient(ellipse at 86% 114%, #d9fadd 0 52%, transparent 53%),
+    linear-gradient(180deg, transparent 58%, #e8fde8 59% 100%);
+}
+
+/* keep app above wallpaper */
+main {
+  position: relative;
+  z-index: 1;
+}
+.nofaff-logo {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 44px;
+  line-height: 1;
+
+  /* subtle 3D, not cartoony */
+  color: #0b0b0b;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.75),
+    0 2px 0 rgba(255,255,255,0.45),
+    0 6px 14px rgba(0,0,0,0.18);
+}
+@media (min-width: 768px) {
+  .nofaff-logo {
+    font-size: 56px;
+  }
+}

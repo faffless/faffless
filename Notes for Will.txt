@@ -1,0 +1,11 @@
+in powershell, you want to start with:
+
+CD:
+C:\Users\WCale\Desktop\nofaff
+
+and then:
+npm run dev
+
+and browser address is:
+http://localhost:3000
+
