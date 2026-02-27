@@ -35,9 +35,9 @@ export default function HomePage() {
 
           {/* Your original explainer line (kept) */}
           <p className="mt-5 text-[12px] sm:text-[15px] md:text-[17px] font-semibold text-black/66 leading-snug max-w-3xl">
-            The UK Budget announced all VAT invoices must be issued as an e-invoice from 2029,
+            The UK will require VAT invoices to be issued as e-invoices from 2029.
             <br />
-            start creating and transmitting e-invoices to your customers right now using faffless.
+            Create a structured e-invoice XML (plus a PDF) in minutes — no faff.
           </p>
 
           {/* Coming soon badge */}
