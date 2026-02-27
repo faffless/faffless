@@ -20,7 +20,7 @@ export default function HomePage() {
         <div className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-6 text-center">
           {/* Logo */}
           <Image
-            src="/branding/faffless-lockup11.png"
+            src="/branding/faffless-lockup16.png"
             alt="FAFFLESS"
             width={1200}
             height={400}
@@ -30,14 +30,14 @@ export default function HomePage() {
 
           {/* Your original “Free E-invoice Creator” */}
           <h1 className="-mt-1 text-[22px] sm:text-[28px] md:text-[40px] font-black tracking-tight text-black/82 leading-[1.25]">
-            Free E-invoice Creator
+            Free E-Invoice XML Generator (UK)
           </h1>
 
           {/* Your original explainer line (kept) */}
           <p className="mt-5 text-[12px] sm:text-[15px] md:text-[17px] font-semibold text-black/66 leading-snug max-w-3xl">
-            The UK will require VAT invoices to be issued as e-invoices from 2029.
+            Create structured invoice XML you can upload or email today.
             <br />
-            Create a structured e-invoice XML (plus a PDF) in minutes — no faff.
+            Peppol/endpoint sending is coming — join early access.
           </p>
 
           {/* Coming soon badge */}
