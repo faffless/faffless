@@ -21,7 +21,7 @@ export default function HomePage() {
             {/* Logo */}
             <div className="flex justify-center">
               <Image
-                src="/branding/faffless-lockup20.png"
+                src="/branding/faffless-lockup23.png"
                 alt="FAFFLESSVAT"
                 width={1200}
                 height={400}
@@ -37,7 +37,7 @@ export default function HomePage() {
             <p className="mt-4 text-[12px] font-semibold leading-snug text-black/66 sm:text-[15px] md:text-[17px]">
               UK mandatory e-invoicing arrives for all VAT-registered businesses in April 2029.
               <br />
-              Create structured invoice XML for sending via peppol/endpoint using fafflessVAT.co.uk
+              Easily create one for sending via peppol/endpoint using fafflessVAT.co.uk
             </p>
 
             {/* Primary CTA */}
@@ -46,7 +46,7 @@ export default function HomePage() {
                 href="mailto:hello@fafflessvat.co.uk?subject=FAFFLESSVAT%20Early%20Access&body=Hi%2C%20please%20add%20me%20to%20early%20access.%0A%0AName%3A%0ABusiness%3A%0AWhat%20are%20you%20trying%20to%20do%3F%20(e.g.%20send%20to%20public%20sector%2C%20export%20XML%2C%20reduce%20admin)%0A"
                 className="inline-flex items-center justify-center rounded-2xl bg-black px-6 py-4 text-sm font-extrabold tracking-wide text-white shadow-[0_14px_40px_rgba(0,0,0,0.18)] transition hover:opacity-95 active:opacity-90 sm:text-base"
               >
-                Keep me updated
+                Launching soon. Join our mailing list.
               </a>
             </div>
           </div>
