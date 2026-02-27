@@ -1,12 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type YesNo = "yes" | "no";
 
 type FormState = {
-  vatRegistered: "yes" | "no";
-  showUTR: "yes" | "no";
+  vatRegistered: YesNo;
+  showUTR: YesNo;
 
+  // Seller
   sellerName: string;
   sellerEmail: string;
   sellerPhone: string;
@@ -18,28 +21,37 @@ type FormState = {
   sellerPostcode: string;
   sellerCountry: string;
 
+  // Buyer
   buyerName: string;
   buyerEmail: string;
   buyerVat: string;
-  buyerEInvoiceId: string;
+  buyerEInvoiceScheme: string; // schemeID
+  buyerEInvoiceId: string; // endpoint id value
   buyerAddress1: string;
   buyerAddress2: string;
   buyerCity: string;
   buyerPostcode: string;
   buyerCountry: string;
 
+  // Invoice
   invoiceNo: string;
   issueDate: string;
   dueDate: string;
   currency: string;
   poNumber: string;
+  invoiceTypeCode: string;
 
+  // Line (MVP: single line)
   itemDescription: string;
+  quantity: string;
+  unitCode: string;
   netAmount: string;
+  vatCategoryCode: string;
   vatRate: string;
   vatAmount: string;
   totalAmount: string;
 
+  // Payment
   paymentMethod: string;
   bankName: string;
   accountName: string;
@@ -90,24 +102,104 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-export default function Home() {
+const ENDPOINT_SCHEMES: { value: string; label: string }[] = [
+  { value: "", label: "Select scheme (recommended if you add an Endpoint ID)" },
+  { value: "0088", label: "0088 — EAN Location Code (GLN)" },
+  { value: "9906", label: "9906 — UK VAT number (sometimes used)" },
+  { value: "9925", label: "9925 — UK Companies House number (sometimes used)" },
+];
+
+type Extracted = Partial<FormState> & {
+  _summary?: string;
+  _confidence?: "low" | "medium" | "high";
+};
+
+function isEmpty(v: unknown) {
+  return !String(v ?? "").trim();
+}
+
+function nonEmptyKeys(obj: Record<string, string>) {
+  return Object.entries(obj)
+    .filter(([, v]) => !isEmpty(v))
+    .map(([k]) => k);
+}
+
+/**
+ * MVP “extractor” stub.
+ * Replace this later with:
+ *   const res = await fetch("/api/extract", { method:"POST", body: JSON.stringify({ notes: pasteText }) })
+ *   const extracted = await res.json()
+ */
+function fakeExtractFromNotes(notes: string): Extracted {
+  const t = notes.toLowerCase();
+
+  // Very naive heuristics, just to demonstrate autofill UX.
+  const out: Extracted = {
+    _confidence: "low",
+    _summary: "Drafted a few fields from your notes (demo mode).",
+  };
+
+  // Amount: look for £123 or 123.45
+  const moneyMatch = notes.match(/£\s*([0-9]+(?:\.[0-9]{1,2})?)/) || notes.match(/([0-9]+(?:\.[0-9]{1,2})?)\s*(?:gbp|pounds)?/i);
+  if (moneyMatch?.[1]) out.netAmount = moneyMatch[1];
+
+  // Due in X days
+  const dueMatch = notes.match(/due\s+in\s+(\d{1,3})\s+days/i);
+  if (dueMatch?.[1]) {
+    const days = Number(dueMatch[1]);
+    if (Number.isFinite(days)) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      out.dueDate = d.toISOString().slice(0, 10);
+    }
+  }
+
+  // Description guesses
+  if (t.includes("window")) out.itemDescription = "Window cleaning services";
+  else if (t.includes("roof")) out.itemDescription = "Roof repair services";
+  else if (t.includes("plumb")) out.itemDescription = "Plumbing services";
+  else if (t.includes("electric")) out.itemDescription = "Electrical services";
+
+  // Buyer “Acme Ltd” style (super naive)
+  const companyMatch = notes.match(/invoice\s+([A-Z][A-Za-z0-9&.\- ]{2,60})\s+(?:for|to)/);
+  if (companyMatch?.[1]) out.buyerName = companyMatch[1].trim();
+
+  // VAT hints
+  if (t.includes("vat") && (t.includes("20") || t.includes("20%"))) {
+    out.vatRegistered = "yes";
+    out.vatCategoryCode = "S";
+    out.vatRate = "20";
+    out._confidence = "medium";
+  }
+
+  return out;
+}
+
+export default function CreatePage() {
   const [status, setStatus] = useState("");
   const [aiStatus, setAiStatus] = useState("");
   const [pasteText, setPasteText] = useState("");
 
-  const [startOpen, setStartOpen] = useState(false);
+  const manualTopRef = useRef<HTMLDivElement | null>(null);
+
+  // Panels
+  const [aiOpen, setAiOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
-  const [buyerOpen, setBuyerOpen] = useState(false);
+  const [buyerOpen, setBuyerOpen] = useState(true);
   const [sellerOpen, setSellerOpen] = useState(false);
-  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(true);
 
   const [vatOpen, setVatOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
+  // Autofill confirm modal state
+  const [pendingExtract, setPendingExtract] = useState<Extracted | null>(null);
+  const [showApplyPrompt, setShowApplyPrompt] = useState(false);
+
   const [form, setForm] = useState<FormState>({
-    vatRegistered: "no",
+    vatRegistered: "yes",
     showUTR: "no",
 
     sellerName: "",
@@ -124,6 +216,7 @@ export default function Home() {
     buyerName: "",
     buyerEmail: "",
     buyerVat: "",
+    buyerEInvoiceScheme: "",
     buyerEInvoiceId: "",
     buyerAddress1: "",
     buyerAddress2: "",
@@ -136,9 +229,13 @@ export default function Home() {
     dueDate: "",
     currency: "GBP",
     poNumber: "",
+    invoiceTypeCode: "380",
 
     itemDescription: "Services",
+    quantity: "1",
+    unitCode: "EA",
     netAmount: "",
+    vatCategoryCode: "S",
     vatRate: "20",
     vatAmount: "",
     totalAmount: "",
@@ -155,10 +252,23 @@ export default function Home() {
     sendToEmail: "",
   });
 
+  // Set default issue date
   useEffect(() => {
     setForm((prev) => (prev.issueDate ? prev : { ...prev, issueDate: todayISO() }));
   }, []);
 
+  // Keep VAT category sensible when VAT registered toggles
+  useEffect(() => {
+    setForm((p) => {
+      if (p.vatRegistered === "yes") {
+        return { ...p, vatCategoryCode: p.vatCategoryCode || "S", vatRate: p.vatRate || "20" };
+      }
+      // Not VAT registered: outside scope is a reasonable MVP default
+      return { ...p, vatCategoryCode: "O", vatRate: "", sellerVat: "" };
+    });
+  }, [form.vatRegistered]);
+
+  // Recalculate totals (single-line MVP)
   useEffect(() => {
     const net = toNumber(form.netAmount);
     const rate = toNumber(form.vatRate);
@@ -196,50 +306,169 @@ export default function Home() {
       setAiStatus("");
       return;
     }
-
     setAiStatus(
-      `${count} file${count > 1 ? "s" : ""} selected. Automatic drafting is the next build step.`
+      `${count} file${count > 1 ? "s" : ""} selected. File extraction comes later — paste notes for now.`
     );
   }
 
-  function handleAutoDraft() {
+  const coreWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    if (!form.sellerName.trim()) warnings.push("Add your business name (seller).");
+    if (!form.buyerName.trim()) warnings.push("Add a customer name (buyer).");
+    if (!form.invoiceNo.trim()) warnings.push("Add an invoice number.");
+    if (!form.issueDate.trim()) warnings.push("Add an invoice date.");
+    if (!form.itemDescription.trim()) warnings.push("Add a description.");
+    if (!form.netAmount.trim()) warnings.push("Add an amount (net).");
+
+    if (form.vatRegistered === "yes" && !form.sellerVat.trim()) {
+      warnings.push("VAT registered: add your VAT number.");
+    }
+    if (form.buyerEInvoiceId.trim() && !form.buyerEInvoiceScheme.trim()) {
+      warnings.push("You added a buyer Endpoint ID — pick an Endpoint scheme (recommended).");
+    }
+    return warnings;
+  }, [form]);
+
+  function scrollToManual() {
+    setManualOpen(true);
+    setBuyerOpen(true);
+    setInvoiceOpen(true);
+    requestAnimationFrame(() => {
+      manualTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function mergeExtracted(mode: "blankOnly" | "overwrite") {
+    if (!pendingExtract) return;
+
+    // Strip meta keys
+    const { _summary, _confidence, ...raw } = pendingExtract;
+
+    setForm((prev) => {
+      const next = { ...prev };
+
+      (Object.keys(raw) as (keyof FormState)[]).forEach((k) => {
+        const incoming = raw[k];
+        if (incoming === undefined) return;
+
+        if (mode === "overwrite") {
+          // Protect a couple of “identity” defaults unless incoming has value
+          next[k] = String(incoming);
+          return;
+        }
+
+        // blankOnly
+        if (isEmpty(prev[k])) {
+          next[k] = String(incoming);
+        }
+      });
+
+      // If extractor sets netAmount but not VAT registered, keep current VAT logic
+      // (Our VAT effects will recalc totals.)
+      return next;
+    });
+
+    setShowApplyPrompt(false);
+    setPendingExtract(null);
+    setAiStatus(_summaryLine(pendingExtract));
+    scrollToManual();
+  }
+
+  function _summaryLine(ex: Extracted) {
+    const conf = ex._confidence ? `(${ex._confidence} confidence)` : "";
+    const s = ex._summary || "Draft applied.";
+    return `${s} ${conf}`.trim();
+  }
+
+  function anyManualWorkStarted() {
+    // If user has typed more than a couple fields beyond defaults, prompt.
+    const defaults: Partial<FormState> = {
+      vatRegistered: "yes",
+      showUTR: "no",
+      sellerCountry: "UK",
+      buyerCountry: "UK",
+      invoiceNo: "INV-001",
+      currency: "GBP",
+      invoiceTypeCode: "380",
+      itemDescription: "Services",
+      quantity: "1",
+      unitCode: "EA",
+      vatCategoryCode: "S",
+      vatRate: "20",
+      paymentMethod: "Bank transfer",
+    };
+
+    const current: Record<string, string> = form as unknown as Record<string, string>;
+    const meaningful = Object.keys(current).filter((k) => {
+      const v = current[k];
+      if (isEmpty(v)) return false;
+      if (k in defaults && String(defaults[k as keyof FormState] ?? "") === String(v)) return false;
+      // issueDate defaults set automatically — don’t count it as “manual work”
+      if (k === "issueDate") return false;
+      return true;
+    });
+
+    return meaningful.length >= 2;
+  }
+
+  function handleAutoFill() {
+    setStatus("");
+    setAiStatus("");
+
     if (!pasteText.trim() && !aiStatus) {
-      setAiStatus("Drop files or paste a few notes first.");
+      setAiStatus("Paste some notes first (file extraction comes later).");
       return;
     }
 
-    setAiStatus(
-      "This layout is now ready for the automatic route. Next build step is wiring the AI extraction so it predicts the invoice and sends you straight to preview."
-    );
+    // Replace this with real API call later.
+    const extracted = fakeExtractFromNotes(pasteText.trim());
+
+    setPendingExtract(extracted);
+
+    const started = anyManualWorkStarted();
+    if (started) {
+      setShowApplyPrompt(true);
+    } else {
+      // If user hasn't started, just apply "blankOnly" (same as overwrite effectively on empty)
+      setAiStatus(_summaryLine(extracted));
+      mergeExtracted("blankOnly");
+    }
   }
 
   function handlePreview() {
-    setStatus("");
+  setStatus("");
 
-    const params = new URLSearchParams();
-    (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
-      if (form[k]) params.set(k, form[k]);
-    });
-
-    if (pasteText.trim()) {
-      params.set("sourceNotes", pasteText.trim());
-    }
-
-    window.location.href = `/preview?${params.toString()}`;
+  // Forgiving mode: always allow preview.
+  // Still show a helpful message if incomplete.
+  if (coreWarnings.length) {
+    setStatus(`Draft preview (missing: ${coreWarnings.slice(0, 3).join(" • ")}${coreWarnings.length > 3 ? " • …" : ""})`);
   }
+
+  const params = new URLSearchParams();
+  (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
+    if (form[k]) params.set(k, form[k]);
+  });
+
+  if (pasteText.trim()) params.set("sourceNotes", pasteText.trim());
+
+  window.location.href = `/preview?${params.toString()}`;
+}
 
   const labelCls = "ff-label mb-1";
   const inputCls = "ff-input";
-  const panelCls = "ff-panel-warm p-4 sm:p-5 h-full";
+  const panelCls = "ff-panel-warm p-4 sm:p-5";
   const fieldWrap = "flex flex-col";
 
   return (
     <main className="ff-shell">
-      <div className="ff-container max-w-5xl">
+      <div className="ff-container max-w-4xl">
         <header className="-mt-4 sm:-mt-6 pt-0">
           <div className="flex flex-col items-center text-center">
+<div className="mt-2 inline-flex items-center justify-center rounded-full border border-black/15 bg-white/70 px-3 py-1 text-[11px] font-extrabold tracking-[0.18em] text-black/60 shadow-[0_8px_22px_rgba(0,0,0,0.06)]">
+  BETA
+</div>
             <Image
-              src="/branding/faffless-lockup10n.png"
+              src="/branding/faffless-lockup26.png"
               alt="FAFFLESS"
               width={1200}
               height={400}
@@ -249,39 +478,41 @@ export default function Home() {
 
             <div className="-mt-1 max-w-3xl">
               <h1 className="ff-heroText text-[14px] sm:text-[28px] md:text-[40px] font-black tracking-tight text-black/82 leading-[1.38]">
-                Free E-invoice Creator
+                Free E-invoice Creator (MVP)
               </h1>
 
               <p className="ff-heroText mt-5 text-[12px] sm:text-[15px] md:text-[17px] font-semibold text-black/66 leading-snug">
-                The UK Budget announced all VAT invoices must be issued as an e-invoice from 2029, <br />
-                start creating and transmitting e-invoices to your customers right now using faffless.
+                Paste a few notes to auto-fill, then tweak the fields and export XML/PDF.
               </p>
             </div>
           </div>
         </header>
 
-        <div className="mt-8 sm:mt-10 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-          {/* LEFT: UPLOAD / AI */}
+        {/* SINGLE COLUMN STACK */}
+        <div className="mt-8 sm:mt-10 space-y-5 sm:space-y-6">
+          {/* AI / EXTRACTOR */}
           <section className={panelCls}>
             <details
               className="ff-details"
-              open={startOpen}
-              onToggle={(e) => setStartOpen((e.target as HTMLDetailsElement).open)}
+              open={aiOpen}
+              onToggle={(e) => setAiOpen((e.target as HTMLDetailsElement).open)}
             >
               <summary className="ff-summary">
-                <span>
-                  Already have a document?
-                  <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                    Drop any invoice, quote, email conversation, receipts or anything relevant right here and we’ll use ai to draft your e-invoice
-                  </span>
-                </span>
-                <Chevron open={startOpen} />
-              </summary>
+  <span className="flex-1 text-center">
+    <span className="block font-extrabold">
+      Auto-fill from notes (recommended)
+    </span>
+    <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
+      Paste a quote / email / job notes — we’ll draft the invoice fields (files later)
+    </span>
+  </span>
+  <Chevron open={aiOpen} />
+</summary>
 
               <div className="px-4 pb-4">
                 <div className="mt-2 grid grid-cols-1 gap-4">
                   <label className="block">
-                    <div className="ff-label mb-2">Upload files</div>
+                    <div className="ff-label mb-2">Upload files (beta later)</div>
                     <div className="rounded-2xl border border-dashed border-black/20 bg-white/65 p-4 sm:p-5">
                       <input
                         type="file"
@@ -290,7 +521,7 @@ export default function Home() {
                         className="block w-full text-sm text-black/70 file:mr-4 file:rounded-xl file:border-0 file:bg-black file:px-4 file:py-2 file:font-bold file:text-white hover:file:opacity-95"
                       />
                       <div className="mt-3 text-xs text-black/55 leading-5">
-                        Good examples: previous invoice, quote, email, job notes or plain text.
+                        For now, use “Paste notes” below for best results.
                       </div>
                     </div>
                   </label>
@@ -300,15 +531,25 @@ export default function Home() {
                     <textarea
                       value={pasteText}
                       onChange={(e) => setPasteText(e.target.value)}
-                      rows={8}
-                      placeholder="Example: Invoice Acme Ltd for website design work completed in February, £1,200 net, due in 14 days..."
+                      rows={7}
+                      placeholder="Example: Invoice Acme Ltd for window cleaning completed in Feb, £120 net, due in 14 days..."
                       className={inputCls}
                     />
                   </label>
 
-                  <button onClick={handleAutoDraft} className="ff-btn-primary">
-                    Create draft automatically
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button onClick={handleAutoFill} className="ff-btn-primary">
+                      Auto-fill fields
+                    </button>
+
+                    <button
+                      onClick={scrollToManual}
+                      className="ff-btn-secondary"
+                      type="button"
+                    >
+                      Skip and fill manually
+                    </button>
+                  </div>
 
                   <div className="text-center text-xs text-black/70">{aiStatus}</div>
                 </div>
@@ -316,26 +557,28 @@ export default function Home() {
             </details>
           </section>
 
-          {/* RIGHT: MANUAL */}
-          <section className={panelCls}>
+          {/* MANUAL */}
+          <section className={panelCls} ref={manualTopRef}>
             <details
               className="ff-details"
               open={manualOpen}
               onToggle={(e) => setManualOpen((e.target as HTMLDetailsElement).open)}
             >
               <summary className="ff-summary">
-                <span>
-                  Manually add anything else
-                  <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                    Open this if you want to fill in any of the e-invoice details yourself (e.g. your address or your VAT number)
-                  </span>
-                </span>
-                <Chevron open={manualOpen} />
-              </summary>
+  <span className="flex-1 text-center">
+    <span className="block font-extrabold">
+      Auto-fill from notes (recommended)
+    </span>
+    <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
+      Paste a quote / email / job notes — we’ll draft the invoice fields (files later)
+    </span>
+  </span>
+  <Chevron open={aiOpen} />
+</summary>
 
               <div className="px-4 pb-4">
                 <div className="mt-2 grid grid-cols-1 gap-3">
-                  {/* BUYER DETAILS */}
+                  {/* BUYER */}
                   <details
                     className="ff-details"
                     open={buyerOpen}
@@ -345,7 +588,7 @@ export default function Home() {
                       <span>
                         Buyer details
                         <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                          Who the invoice is for — only fill in what you actually need
+                          Who the invoice is for
                         </span>
                       </span>
                       <Chevron open={buyerOpen} />
@@ -363,15 +606,41 @@ export default function Home() {
                           />
                         </label>
 
-                        <label className={fieldWrap}>
-                          <div className={labelCls}>Buyer e-invoice delivery ID</div>
-                          <input
-                            value={form.buyerEInvoiceId}
-                            onChange={(e) => setField("buyerEInvoiceId", e.target.value)}
-                            placeholder="Ask customer: Peppol ID / Endpoint ID"
-                            className={inputCls}
-                          />
-                        </label>
+                        <div className="rounded-2xl border border-black/10 bg-white/60 p-3">
+                          <div className="text-[12px] font-extrabold text-black/70">
+                            E-invoice delivery (optional)
+                          </div>
+                          <div className="mt-1 text-[11px] font-semibold text-black/55 leading-5">
+                            If the customer is on Peppol, they’ll give you an Endpoint ID and a scheme.
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label className={fieldWrap}>
+                              <div className={labelCls}>Endpoint scheme</div>
+                              <select
+                                value={form.buyerEInvoiceScheme}
+                                onChange={(e) => setField("buyerEInvoiceScheme", e.target.value)}
+                                className={inputCls}
+                              >
+                                {ENDPOINT_SCHEMES.map((s) => (
+                                  <option key={s.value} value={s.value}>
+                                    {s.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className={fieldWrap}>
+                              <div className={labelCls}>Endpoint ID</div>
+                              <input
+                                value={form.buyerEInvoiceId}
+                                onChange={(e) => setField("buyerEInvoiceId", e.target.value)}
+                                placeholder="Ask customer: Endpoint / Peppol ID"
+                                className={inputCls}
+                              />
+                            </label>
+                          </div>
+                        </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <label className={fieldWrap}>
@@ -449,7 +718,7 @@ export default function Home() {
                     </div>
                   </details>
 
-                  {/* SELLER DETAILS */}
+                  {/* SELLER */}
                   <details
                     className="ff-details"
                     open={sellerOpen}
@@ -459,7 +728,7 @@ export default function Home() {
                       <span>
                         Seller details
                         <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                          Your business details — keep it light unless the invoice needs more
+                          Your business details
                         </span>
                       </span>
                       <Chevron open={sellerOpen} />
@@ -552,7 +821,7 @@ export default function Home() {
                     </div>
                   </details>
 
-                  {/* INVOICE DETAILS */}
+                  {/* INVOICE */}
                   <details
                     className="ff-details"
                     open={invoiceOpen}
@@ -562,7 +831,7 @@ export default function Home() {
                       <span>
                         Invoice details
                         <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                          The actual invoice — dates, amount, VAT, payment and notes
+                          Dates, amount, VAT, payment and notes
                         </span>
                       </span>
                       <Chevron open={invoiceOpen} />
@@ -613,6 +882,7 @@ export default function Home() {
                               <option value="USD">USD ($)</option>
                             </select>
                           </label>
+
                           <label className={fieldWrap}>
                             <div className={labelCls}>PO number</div>
                             <input
@@ -625,11 +895,23 @@ export default function Home() {
                         </div>
 
                         <label className={fieldWrap}>
+                          <div className={labelCls}>Invoice type (MVP)</div>
+                          <select
+                            value={form.invoiceTypeCode}
+                            onChange={(e) => setField("invoiceTypeCode", e.target.value)}
+                            className={inputCls}
+                          >
+                            <option value="380">380 — Commercial invoice</option>
+                            <option value="381">381 — Credit note (later)</option>
+                          </select>
+                        </label>
+
+                        <label className={fieldWrap}>
                           <div className={labelCls}>What is this for?</div>
                           <input
                             value={form.itemDescription}
                             onChange={(e) => setField("itemDescription", e.target.value)}
-                            placeholder="e.g. Web design services"
+                            placeholder="e.g. Window cleaning services"
                             className={inputCls}
                           />
                         </label>
@@ -639,7 +921,7 @@ export default function Home() {
                           <input
                             value={form.netAmount}
                             onChange={(e) => setField("netAmount", e.target.value)}
-                            placeholder="e.g. 1000"
+                            placeholder="e.g. 120"
                             inputMode="decimal"
                             className={inputCls}
                           />
@@ -654,7 +936,7 @@ export default function Home() {
                             <span>
                               VAT + tax IDs
                               <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                                Leave collapsed unless you need VAT on the invoice
+                                Keep closed unless needed
                               </span>
                             </span>
                             <Chevron open={vatOpen} />
@@ -666,13 +948,11 @@ export default function Home() {
                                 <div className={labelCls}>Are you VAT registered?</div>
                                 <select
                                   value={form.vatRegistered}
-                                  onChange={(e) =>
-                                    setField("vatRegistered", e.target.value as "yes" | "no")
-                                  }
+                                  onChange={(e) => setField("vatRegistered", e.target.value as YesNo)}
                                   className={inputCls}
                                 >
-                                  <option value="no">No</option>
                                   <option value="yes">Yes</option>
+                                  <option value="no">No</option>
                                 </select>
                               </label>
 
@@ -688,6 +968,20 @@ export default function Home() {
                                     />
                                   </label>
 
+                                  <label className={fieldWrap}>
+                                    <div className={labelCls}>VAT category (MVP)</div>
+                                    <select
+                                      value={form.vatCategoryCode}
+                                      onChange={(e) => setField("vatCategoryCode", e.target.value)}
+                                      className={inputCls}
+                                    >
+                                      <option value="S">S — Standard rated</option>
+                                      <option value="Z">Z — Zero rated</option>
+                                      <option value="E">E — Exempt</option>
+                                      <option value="O">O — Outside scope</option>
+                                    </select>
+                                  </label>
+
                                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <label className={fieldWrap}>
                                       <div className={labelCls}>VAT rate %</div>
@@ -696,6 +990,7 @@ export default function Home() {
                                         onChange={(e) => setField("vatRate", e.target.value)}
                                         inputMode="decimal"
                                         className={inputCls}
+                                        placeholder="20"
                                       />
                                     </label>
                                     <label className={fieldWrap}>
@@ -704,11 +999,7 @@ export default function Home() {
                                     </label>
                                     <label className={fieldWrap}>
                                       <div className={labelCls}>Total</div>
-                                      <input
-                                        value={form.totalAmount}
-                                        readOnly
-                                        className={inputCls}
-                                      />
+                                      <input value={form.totalAmount} readOnly className={inputCls} />
                                     </label>
                                   </div>
                                 </>
@@ -733,9 +1024,7 @@ export default function Home() {
                                   <div className={labelCls}>Show UTR on invoice?</div>
                                   <select
                                     value={form.showUTR}
-                                    onChange={(e) =>
-                                      setField("showUTR", e.target.value as "yes" | "no")
-                                    }
+                                    onChange={(e) => setField("showUTR", e.target.value as YesNo)}
                                     className={inputCls}
                                   >
                                     <option value="no">No</option>
@@ -756,7 +1045,7 @@ export default function Home() {
                             <span>
                               Bank / payment details
                               <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                                Include these if you want them shown on the invoice
+                                Optional (shown on invoice/PDF)
                               </span>
                             </span>
                             <Chevron open={paymentOpen} />
@@ -853,7 +1142,7 @@ export default function Home() {
                             <span>
                               Notes + email
                               <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                                Leave this closed unless you actually need it
+                                Optional
                               </span>
                             </span>
                             <Chevron open={notesOpen} />
@@ -884,6 +1173,18 @@ export default function Home() {
                             </div>
                           </div>
                         </details>
+
+                        {coreWarnings.length ? (
+                          <div className="rounded-2xl border border-black/10 bg-white/60 p-3 text-xs font-semibold text-black/60 leading-5">
+                            <div className="font-extrabold text-black/70">Before preview:</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1">
+                              {coreWarnings.slice(0, 5).map((w) => (
+                                <li key={w}>{w}</li>
+                              ))}
+                              {coreWarnings.length > 5 ? <li>…and more</li> : null}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </details>
@@ -891,16 +1192,71 @@ export default function Home() {
               </div>
             </details>
           </section>
-        </div>
 
-        <div className="mt-6 sm:mt-7">
-          <button onClick={handlePreview} className="ff-btn-primary">
-            Preview &amp; finish
-          </button>
+          <div className="pt-1">
+  <div className="grid grid-cols-4 gap-3">
+    <a
+      href="/"
+      className="col-span-1 inline-flex items-center justify-center rounded-2xl bg-white/65 py-4 font-extrabold transition border border-black/20 hover:bg-white/85 active:bg-white/70"
+    >
+      Home
+    </a>
 
-          <div className="mt-3 text-center text-xs text-black/70 break-words">{status}</div>
+    <button onClick={handlePreview} className="ff-btn-primary col-span-3">
+      Preview draft
+    </button>
+  </div>
+
+  <div className="mt-3 text-center text-xs text-black/70 break-words">{status}</div>
+</div>
         </div>
       </div>
+
+      {/* Apply prompt modal */}
+      {showApplyPrompt && pendingExtract ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
+          <div className="w-full max-w-lg rounded-[28px] border border-black/10 bg-white p-5 shadow-[0_30px_90px_rgba(0,0,0,0.25)]">
+            <div className="text-[16px] font-black text-black/85">
+              Apply auto-fill to your form?
+            </div>
+            <div className="mt-2 text-sm font-semibold text-black/65 leading-6">
+              You’ve already started typing. Choose how to apply the draft:
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-black/10 bg-black/[0.02] p-3 text-xs font-semibold text-black/60 leading-5">
+              <div className="font-extrabold text-black/70">Draft summary</div>
+              <div className="mt-1">{_summaryLine(pendingExtract)}</div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3">
+              <button
+                className="ff-btn-primary"
+                onClick={() => mergeExtracted("blankOnly")}
+              >
+                Fill blanks only (recommended)
+              </button>
+
+              <button
+                className="ff-btn-secondary"
+                onClick={() => mergeExtracted("overwrite")}
+              >
+                Overwrite my fields with the draft
+              </button>
+
+              <button
+                className="w-full rounded-2xl bg-white/65 py-3 font-extrabold transition border border-black/20 hover:bg-white/85 active:bg-white/70"
+                onClick={() => {
+                  setShowApplyPrompt(false);
+                  setPendingExtract(null);
+                  setAiStatus("Auto-fill cancelled.");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <style jsx global>{`
         .ff-heroText {

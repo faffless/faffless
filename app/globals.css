@@ -1,4 +1,7 @@
+
 @import "tailwindcss";
+
+html { scrollbar-gutter: stable; }
 
 /* ---- Design tokens ---- */
 :root {

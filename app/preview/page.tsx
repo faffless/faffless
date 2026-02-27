@@ -13,7 +13,7 @@ function safe(v: string | null) {
 function LandingLogoMini() {
   return (
     <Image
-      src="/brand/faffless-lockup10n.png"
+      src="/branding/faffless-lockup26.png"
       alt="FAFFLESS"
       width={1200}
       height={400}
@@ -77,6 +77,31 @@ function InvoiceBlock({
   );
 }
 
+function formatInvoiceType(code: string) {
+  if (!code) return "";
+  if (code === "380") return "380 (Commercial invoice)";
+  if (code === "381") return "381 (Credit note)";
+  return code;
+}
+
+function formatVatCategory(code: string, vatRegistered: string) {
+  if (!code) return vatRegistered === "yes" ? "S (Standard rated)" : "O (Outside scope)";
+  const map: Record<string, string> = {
+    S: "S (Standard rated)",
+    Z: "Z (Zero rated)",
+    E: "E (Exempt)",
+    O: "O (Outside scope)",
+  };
+  return map[code] || code;
+}
+
+function endpointLabel(scheme: string, id: string) {
+  if (!scheme && !id) return "";
+  if (scheme && id) return `${scheme}:${id}`;
+  if (id) return id;
+  return scheme;
+}
+
 function PreviewPageContent() {
   const sp = useSearchParams();
   const [status, setStatus] = useState("");
@@ -100,6 +125,7 @@ function PreviewPageContent() {
       "buyerName",
       "buyerEmail",
       "buyerVat",
+      "buyerEInvoiceScheme",
       "buyerEInvoiceId",
       "buyerAddress1",
       "buyerAddress2",
@@ -112,9 +138,13 @@ function PreviewPageContent() {
       "dueDate",
       "currency",
       "poNumber",
+      "invoiceTypeCode",
 
       "itemDescription",
+      "quantity",
+      "unitCode",
       "netAmount",
+      "vatCategoryCode",
       "vatRate",
       "vatAmount",
       "totalAmount",
@@ -138,7 +168,9 @@ function PreviewPageContent() {
   }, [sp]);
 
   const buyerDisplay = data.buyerName || "your customer";
+
   const hasEndpoint = Boolean(data.buyerEInvoiceId);
+  const hasEndpointScheme = Boolean(data.buyerEInvoiceScheme);
 
   const sellerAddress = joinParts([
     data.sellerAddress1,
@@ -166,6 +198,14 @@ function PreviewPageContent() {
     data.totalAmount || data.netAmount,
     "No total yet"
   );
+
+  const endpointDisplay = endpointLabel(data.buyerEInvoiceScheme, data.buyerEInvoiceId);
+
+  const invoiceTypeDisplay = formatInvoiceType(data.invoiceTypeCode || "380");
+  const vatCatDisplay = formatVatCategory(data.vatCategoryCode, data.vatRegistered);
+
+  const qtyDisplay = data.quantity ? data.quantity : "1";
+  const unitDisplay = data.unitCode ? data.unitCode : "EA";
 
   const btnPrimary = "ff-btn-primary";
   const btnSecondary = "ff-btn-secondary";
@@ -218,8 +258,8 @@ function PreviewPageContent() {
     if (displayTotal !== "No total yet") lines.push(`- Total: ${displayTotal}`);
     lines.push("");
 
-    if (data.buyerEInvoiceId) {
-      lines.push(`E-invoice delivery ID: ${data.buyerEInvoiceId}`);
+    if (endpointDisplay) {
+      lines.push(`E-invoice delivery (Endpoint): ${endpointDisplay}`);
       lines.push("");
     }
 
@@ -244,9 +284,17 @@ function PreviewPageContent() {
   }
 
   function sendEInvoice() {
+    // Not a real send yet — this is a UX prompt.
     if (!hasEndpoint) {
       setStatus(
-        "To transmit direct to the customer’s system, you still need their e-invoice delivery ID (sometimes called Endpoint ID or Peppol ID)."
+        "To transmit direct to the customer’s system, you need their Endpoint ID (sometimes called Peppol ID). Ask the customer’s accounts team."
+      );
+      return;
+    }
+
+    if (hasEndpoint && !hasEndpointScheme) {
+      setStatus(
+        "You added an Endpoint ID, but not the scheme. In Peppol, endpoints need a schemeID too (e.g. 0088). Add it on the previous page if possible."
       );
       return;
     }
@@ -260,13 +308,13 @@ function PreviewPageContent() {
       !data.netAmount
     ) {
       setStatus(
-        "Before transmitting, add the core invoice details: seller name, buyer name, invoice number, invoice date, description and amount."
+        "Before transmitting, add core invoice details: seller name, buyer name, invoice number, invoice date, description and amount."
       );
       return;
     }
 
     setStatus(
-      "Direct transmission is the next build step. For now, download the e-invoice XML below and send or upload it using the customer’s required route."
+      "Direct transmission is the next build step. For now, download the e-invoice XML below and send/upload it via the customer’s required route (portal, software import, or your Access Point)."
     );
   }
 
@@ -276,18 +324,22 @@ function PreviewPageContent() {
         <div className="ff-card px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between gap-3">
             <button
-              onClick={() => (window.location.href = "/")}
+              onClick={() => (window.location.href = "/create")}
               className="rounded-2xl bg-white/70 px-4 py-2 font-extrabold transition border border-black/20 hover:bg-white/90 active:bg-white/75"
             >
               Back to edit
             </button>
 
-            <div className="text-center flex-1 flex justify-center">
-              <LandingLogoMini />
-            </div>
+            <div className="text-center flex-1 flex flex-col items-center justify-center">
+  
+  <div className="mt-2 inline-flex items-center justify-center rounded-full border border-black/15 bg-white/70 px-3 py-1 text-[11px] font-extrabold tracking-[0.18em] text-black/60 shadow-[0_8px_22px_rgba(0,0,0,0.06)]">
+    BETA
+  </div>
+<LandingLogoMini />
+</div>
 
             <button
-              onClick={() => (window.location.href = "/")}
+              onClick={() => (window.location.href = "/create")}
               className="rounded-2xl bg-white/70 px-4 py-2 font-extrabold transition border border-black/20 hover:bg-white/90 active:bg-white/75"
             >
               Start again
@@ -301,9 +353,8 @@ function PreviewPageContent() {
           </div>
 
           <p className="mt-2 text-center text-sm leading-6 text-black/65">
-            This page shows a human-readable preview of the invoice data. When you send a real
-            e-invoice, the accounting system reads structured data fields rather than this page
-            design, so the layout here is only for review.
+            This page is a human-readable preview for checking your data. The real e-invoice is a
+            structured XML file used by accounting systems.
           </p>
         </div>
 
@@ -326,6 +377,7 @@ function PreviewPageContent() {
                   <FieldLine label="Due date" value={data.dueDate} />
                   <FieldLine label="Currency" value={data.currency} />
                   <FieldLine label="PO number" value={data.poNumber} />
+                  <FieldLine label="Invoice type" value={invoiceTypeDisplay} />
                 </div>
               </div>
 
@@ -358,7 +410,12 @@ function PreviewPageContent() {
                   {data.buyerEmail ? <div>{data.buyerEmail}</div> : null}
                   {buyerAddress ? <div>{buyerAddress}</div> : null}
                   {data.buyerVat ? <div>VAT: {data.buyerVat}</div> : null}
-                  {data.buyerEInvoiceId ? <div>Delivery ID: {data.buyerEInvoiceId}</div> : null}
+                  {endpointDisplay ? (
+                    <div>
+                      Delivery (Endpoint):{" "}
+                      <span className="font-semibold text-black/85">{endpointDisplay}</span>
+                    </div>
+                  ) : null}
                 </InvoiceBlock>
               </div>
 
@@ -369,6 +426,9 @@ function PreviewPageContent() {
                       <tr>
                         <th className="border-b border-black/12 pb-3 text-left text-[12px] font-black uppercase tracking-[0.1em] text-black/45">
                           Description
+                        </th>
+                        <th className="border-b border-black/12 pb-3 text-right text-[12px] font-black uppercase tracking-[0.1em] text-black/45">
+                          Qty
                         </th>
                         <th className="border-b border-black/12 pb-3 text-right text-[12px] font-black uppercase tracking-[0.1em] text-black/45">
                           Net
@@ -389,10 +449,26 @@ function PreviewPageContent() {
                               No invoice description added yet
                             </span>
                           )}
+                          <div className="mt-2 text-[12px] font-semibold text-black/55">
+                            VAT: {vatCatDisplay}
+                            {data.vatRegistered === "yes" && data.vatRate
+                              ? ` — ${data.vatRate}%`
+                              : ""}
+                          </div>
                         </td>
+
                         <td className="border-b border-black/8 py-4 text-right align-top text-[14px] text-black/80">
-                          {data.netAmount ? displayNet : <span className="text-black/35 italic">No amount added yet</span>}
+                          {qtyDisplay} <span className="text-black/55">{unitDisplay}</span>
                         </td>
+
+                        <td className="border-b border-black/8 py-4 text-right align-top text-[14px] text-black/80">
+                          {data.netAmount ? (
+                            displayNet
+                          ) : (
+                            <span className="text-black/35 italic">No amount added yet</span>
+                          )}
+                        </td>
+
                         <td className="border-b border-black/8 py-4 text-right align-top text-[14px] text-black/80">
                           {data.vatRegistered === "yes" ? (
                             <>
@@ -403,8 +479,13 @@ function PreviewPageContent() {
                             "Not VAT registered"
                           )}
                         </td>
+
                         <td className="border-b border-black/8 py-4 text-right align-top text-[14px] font-semibold text-black/88">
-                          {data.netAmount || data.totalAmount ? displayTotal : <span className="text-black/35 italic">No total yet</span>}
+                          {data.netAmount || data.totalAmount ? (
+                            displayTotal
+                          ) : (
+                            <span className="text-black/35 italic">No total yet</span>
+                          )}
                         </td>
                       </tr>
                     </tbody>
@@ -438,7 +519,11 @@ function PreviewPageContent() {
                     <div className="flex items-center justify-between border-b border-black/8 py-2 text-sm text-black/75">
                       <span>Net amount</span>
                       <span className="font-semibold text-black/88">
-                        {data.netAmount ? displayNet : <span className="text-black/35 italic">No amount added yet</span>}
+                        {data.netAmount ? (
+                          displayNet
+                        ) : (
+                          <span className="text-black/35 italic">No amount added yet</span>
+                        )}
                       </span>
                     </div>
 
@@ -450,8 +535,29 @@ function PreviewPageContent() {
                     <div className="flex items-center justify-between pt-3 text-[16px] font-black text-black/88">
                       <span>Total</span>
                       <span>
-                        {data.netAmount || data.totalAmount ? displayTotal : <span className="text-black/35 italic">No total yet</span>}
+                        {data.netAmount || data.totalAmount ? (
+                          displayTotal
+                        ) : (
+                          <span className="text-black/35 italic">No total yet</span>
+                        )}
                       </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-black/10 bg-white/60 p-3 text-xs font-semibold text-black/60 leading-5">
+                    <div className="font-extrabold text-black/70">Structured fields (MVP)</div>
+                    <div className="mt-1">
+                      VAT category: <span className="font-bold text-black/75">{vatCatDisplay}</span>
+                    </div>
+                    <div>
+                      Line qty:{" "}
+                      <span className="font-bold text-black/75">
+                        {qtyDisplay} {unitDisplay}
+                      </span>
+                    </div>
+                    <div>
+                      Invoice type:{" "}
+                      <span className="font-bold text-black/75">{invoiceTypeDisplay}</span>
                     </div>
                   </div>
                 </div>
@@ -459,8 +565,7 @@ function PreviewPageContent() {
 
               <div className="pt-8 text-[12px] leading-6 text-black/48">
                 This is a visual preview only. The real e-invoice is a structured data file used by
-                accounting systems, so the presentation of this page is only for checking the
-                invoice information before sending.
+                accounting systems.
               </div>
             </div>
           </div>
@@ -469,15 +574,19 @@ function PreviewPageContent() {
         <div className="mt-6 ff-panel-warm p-4 sm:p-6">
           <div className="text-center font-extrabold text-black/85">Choose what to do next</div>
           <p className="mt-2 text-center text-sm leading-6 text-black/65">
-            Transmit the e-invoice if the customer has a delivery ID, or download the version you
-            need.
+            If the customer has an Endpoint ID, you can aim for structured delivery later. For now,
+            download XML/PDF and attach or upload as needed.
           </p>
 
           <div className="mt-4">
             <button onClick={sendEInvoice} className={btnPrimary}>
               Transmit e-invoice to {buyerDisplay}
               <div className="text-xs font-semibold text-white/70 mt-1">
-                {hasEndpoint ? "Delivery ID provided" : "Needs delivery ID / endpoint"}
+                {hasEndpoint
+                  ? hasEndpointScheme
+                    ? "Endpoint ID + scheme provided"
+                    : "Endpoint ID provided (scheme missing)"
+                  : "Needs Endpoint ID"}
               </div>
             </button>
           </div>
@@ -486,19 +595,16 @@ function PreviewPageContent() {
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
             <button
-              onClick={() => downloadFrom("/api/generate", "invoice.xml")}
-              className={btnSecondary}
-            >
-              Download e-invoice XML
-              <div className="text-[11px] font-semibold text-black/55 mt-1">
-                Structured file for systems
-              </div>
-            </button>
+  onClick={() => setStatus("XML download is in progress (BETA). Coming very soon.")}
+  className={btnSecondary}
+>
+  Download e-invoice XML
+  <div className="text-[11px] font-semibold text-black/55 mt-1">
+    Structured file for systems
+  </div>
+</button>
 
-            <button
-              onClick={() => downloadFrom("/api/pdf", "invoice.pdf")}
-              className={btnGhost}
-            >
+            <button onClick={() => downloadFrom("/api/pdf", "invoice.pdf")} className={btnGhost}>
               Download PDF
               <div className="text-[11px] font-semibold text-black/50 mt-1">
                 Human-readable invoice
@@ -514,12 +620,12 @@ function PreviewPageContent() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button onClick={() => (window.location.href = "/")} className="ff-btn-secondary">
+            <button onClick={() => (window.location.href = "/create")} className="ff-btn-secondary">
               Back to edit
             </button>
 
             <button
-              onClick={() => (window.location.href = "/")}
+              onClick={() => (window.location.href = "/create")}
               className="rounded-2xl bg-white/65 py-3 font-extrabold transition border border-black/20 hover:bg-white/85 active:bg-white/70"
             >
               Start again
@@ -535,7 +641,15 @@ function PreviewPageContent() {
 
 export default function PreviewPage() {
   return (
-    <Suspense fallback={<main className="ff-shell"><div className="w-full max-w-5xl text-center py-20 text-black/60">Loading preview…</div></main>}>
+    <Suspense
+      fallback={
+        <main className="ff-shell">
+          <div className="w-full max-w-5xl text-center py-20 text-black/60">
+            Loading preview…
+          </div>
+        </main>
+      }
+    >
       <PreviewPageContent />
     </Suspense>
   );
