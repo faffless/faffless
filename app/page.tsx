@@ -21,7 +21,7 @@ export default function HomePage() {
             {/* Logo */}
             <div className="flex justify-center">
               <Image
-                src="/branding/faffless-lockup23.png"
+                src="/branding/faffless-lockup26.png"
                 alt="FAFFLESSVAT"
                 width={1200}
                 height={400}
