@@ -8,7 +8,7 @@ export default function HomePage() {
       <div className="relative min-h-screen w-full overflow-hidden">
         {/* Background */}
         <Image
-          src="/Brand/faffless-bg.png"
+          src="/branding/faffless-bg.png"
           alt=""
           fill
           priority
@@ -20,7 +20,7 @@ export default function HomePage() {
         <div className="relative mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-6 text-center">
           {/* Logo */}
           <Image
-            src="/Brand/faffless-lockup11.png"
+            src="/branding/faffless-lockup11.png"
             alt="FAFFLESS"
             width={1200}
             height={400}

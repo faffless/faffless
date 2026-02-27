@@ -239,7 +239,7 @@ export default function Home() {
         <header className="-mt-4 sm:-mt-6 pt-0">
           <div className="flex flex-col items-center text-center">
             <Image
-              src="/brand/faffless-lockup10n.png"
+              src="/branding/faffless-lockup10n.png"
               alt="FAFFLESS"
               width={1200}
               height={400}
