@@ -118,32 +118,23 @@ function isEmpty(v: unknown) {
   return !String(v ?? "").trim();
 }
 
-function nonEmptyKeys(obj: Record<string, string>) {
-  return Object.entries(obj)
-    .filter(([, v]) => !isEmpty(v))
-    .map(([k]) => k);
-}
-
 /**
  * MVP “extractor” stub.
- * Replace this later with:
- *   const res = await fetch("/api/extract", { method:"POST", body: JSON.stringify({ notes: pasteText }) })
- *   const extracted = await res.json()
+ * Replace later with a real API call.
  */
 function fakeExtractFromNotes(notes: string): Extracted {
   const t = notes.toLowerCase();
 
-  // Very naive heuristics, just to demonstrate autofill UX.
   const out: Extracted = {
     _confidence: "low",
     _summary: "Drafted a few fields from your notes (demo mode).",
   };
 
-  // Amount: look for £123 or 123.45
-  const moneyMatch = notes.match(/£\s*([0-9]+(?:\.[0-9]{1,2})?)/) || notes.match(/([0-9]+(?:\.[0-9]{1,2})?)\s*(?:gbp|pounds)?/i);
+  const moneyMatch =
+    notes.match(/£\s*([0-9]+(?:\.[0-9]{1,2})?)/) ||
+    notes.match(/([0-9]+(?:\.[0-9]{1,2})?)\s*(?:gbp|pounds)?/i);
   if (moneyMatch?.[1]) out.netAmount = moneyMatch[1];
 
-  // Due in X days
   const dueMatch = notes.match(/due\s+in\s+(\d{1,3})\s+days/i);
   if (dueMatch?.[1]) {
     const days = Number(dueMatch[1]);
@@ -154,17 +145,14 @@ function fakeExtractFromNotes(notes: string): Extracted {
     }
   }
 
-  // Description guesses
   if (t.includes("window")) out.itemDescription = "Window cleaning services";
   else if (t.includes("roof")) out.itemDescription = "Roof repair services";
   else if (t.includes("plumb")) out.itemDescription = "Plumbing services";
   else if (t.includes("electric")) out.itemDescription = "Electrical services";
 
-  // Buyer “Acme Ltd” style (super naive)
   const companyMatch = notes.match(/invoice\s+([A-Z][A-Za-z0-9&.\- ]{2,60})\s+(?:for|to)/);
   if (companyMatch?.[1]) out.buyerName = companyMatch[1].trim();
 
-  // VAT hints
   if (t.includes("vat") && (t.includes("20") || t.includes("20%"))) {
     out.vatRegistered = "yes";
     out.vatCategoryCode = "S";
@@ -252,7 +240,7 @@ export default function CreatePage() {
     sendToEmail: "",
   });
 
-  // Set default issue date
+  // Default issue date
   useEffect(() => {
     setForm((prev) => (prev.issueDate ? prev : { ...prev, issueDate: todayISO() }));
   }, []);
@@ -263,7 +251,6 @@ export default function CreatePage() {
       if (p.vatRegistered === "yes") {
         return { ...p, vatCategoryCode: p.vatCategoryCode || "S", vatRate: p.vatRate || "20" };
       }
-      // Not VAT registered: outside scope is a reasonable MVP default
       return { ...p, vatCategoryCode: "O", vatRate: "", sellerVat: "" };
     });
   }, [form.vatRegistered]);
@@ -281,22 +268,20 @@ export default function CreatePage() {
     if (form.vatRegistered === "yes") {
       const vat = net * (rate / 100);
       const total = net + vat;
-      setForm((p) => ({
-        ...p,
-        vatAmount: money2(vat),
-        totalAmount: money2(total),
-      }));
+      setForm((p) => ({ ...p, vatAmount: money2(vat), totalAmount: money2(total) }));
     } else {
-      setForm((p) => ({
-        ...p,
-        vatAmount: "",
-        totalAmount: money2(net),
-      }));
+      setForm((p) => ({ ...p, vatAmount: "", totalAmount: money2(net) }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.netAmount, form.vatRate, form.vatRegistered]);
 
   const setField = (key: keyof FormState, value: string) => {
+    // special: ensure YesNo fields stay typed
+    if (key === "vatRegistered" || key === "showUTR") {
+      const v = value === "yes" ? "yes" : "no";
+      setForm((prev) => ({ ...prev, [key]: v } as FormState));
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -306,9 +291,7 @@ export default function CreatePage() {
       setAiStatus("");
       return;
     }
-    setAiStatus(
-      `${count} file${count > 1 ? "s" : ""} selected. File extraction comes later — paste notes for now.`
-    );
+    setAiStatus(`${count} file${count > 1 ? "s" : ""} selected. File extraction comes later — paste notes for now.`);
   }
 
   const coreWarnings = useMemo(() => {
@@ -320,12 +303,10 @@ export default function CreatePage() {
     if (!form.itemDescription.trim()) warnings.push("Add a description.");
     if (!form.netAmount.trim()) warnings.push("Add an amount (net).");
 
-    if (form.vatRegistered === "yes" && !form.sellerVat.trim()) {
-      warnings.push("VAT registered: add your VAT number.");
-    }
-    if (form.buyerEInvoiceId.trim() && !form.buyerEInvoiceScheme.trim()) {
+    if (form.vatRegistered === "yes" && !form.sellerVat.trim()) warnings.push("VAT registered: add your VAT number.");
+    if (form.buyerEInvoiceId.trim() && !form.buyerEInvoiceScheme.trim())
       warnings.push("You added a buyer Endpoint ID — pick an Endpoint scheme (recommended).");
-    }
+
     return warnings;
   }, [form]);
 
@@ -338,42 +319,6 @@ export default function CreatePage() {
     });
   }
 
-  function mergeExtracted(mode: "blankOnly" | "overwrite") {
-    if (!pendingExtract) return;
-
-    // Strip meta keys
-    const { _summary, _confidence, ...raw } = pendingExtract;
-
-    setForm((prev) => {
-      const next = { ...prev };
-
-      (Object.keys(raw) as (keyof FormState)[]).forEach((k) => {
-        const incoming = raw[k];
-        if (incoming === undefined) return;
-
-        if (mode === "overwrite") {
-          // Protect a couple of “identity” defaults unless incoming has value
-          next[k] = String(incoming);
-          return;
-        }
-
-        // blankOnly
-        if (isEmpty(prev[k])) {
-          next[k] = String(incoming);
-        }
-      });
-
-      // If extractor sets netAmount but not VAT registered, keep current VAT logic
-      // (Our VAT effects will recalc totals.)
-      return next;
-    });
-
-    setShowApplyPrompt(false);
-    setPendingExtract(null);
-    setAiStatus(_summaryLine(pendingExtract));
-    scrollToManual();
-  }
-
   function _summaryLine(ex: Extracted) {
     const conf = ex._confidence ? `(${ex._confidence} confidence)` : "";
     const s = ex._summary || "Draft applied.";
@@ -381,7 +326,6 @@ export default function CreatePage() {
   }
 
   function anyManualWorkStarted() {
-    // If user has typed more than a couple fields beyond defaults, prompt.
     const defaults: Partial<FormState> = {
       vatRegistered: "yes",
       showUTR: "no",
@@ -403,12 +347,50 @@ export default function CreatePage() {
       const v = current[k];
       if (isEmpty(v)) return false;
       if (k in defaults && String(defaults[k as keyof FormState] ?? "") === String(v)) return false;
-      // issueDate defaults set automatically — don’t count it as “manual work”
       if (k === "issueDate") return false;
       return true;
     });
 
     return meaningful.length >= 2;
+  }
+
+  // ✅ Typed conversion (fixes Vercel TS error)
+  function toFormValue<K extends keyof FormState>(key: K, incoming: unknown): FormState[K] {
+    if (key === "vatRegistered" || key === "showUTR") {
+      const v = incoming === "yes" || incoming === "no" ? incoming : "no";
+      return v as FormState[K];
+    }
+    return String(incoming ?? "") as FormState[K];
+  }
+
+  function mergeExtracted(mode: "blankOnly" | "overwrite") {
+    if (!pendingExtract) return;
+    const { _summary, _confidence, ...raw } = pendingExtract;
+
+    setForm((prev) => {
+      const next: FormState = { ...prev };
+
+      (Object.keys(raw) as (keyof FormState)[]).forEach((k) => {
+        const incoming = raw[k];
+        if (incoming === undefined) return;
+
+        if (mode === "overwrite") {
+          (next as any)[k] = toFormValue(k as any, incoming);
+          return;
+        }
+
+        if (isEmpty(prev[k])) {
+          (next as any)[k] = toFormValue(k as any, incoming);
+        }
+      });
+
+      return next;
+    });
+
+    setShowApplyPrompt(false);
+    setPendingExtract(null);
+    setAiStatus(_summaryLine(pendingExtract));
+    scrollToManual();
   }
 
   function handleAutoFill() {
@@ -420,39 +402,37 @@ export default function CreatePage() {
       return;
     }
 
-    // Replace this with real API call later.
     const extracted = fakeExtractFromNotes(pasteText.trim());
-
     setPendingExtract(extracted);
 
     const started = anyManualWorkStarted();
     if (started) {
       setShowApplyPrompt(true);
     } else {
-      // If user hasn't started, just apply "blankOnly" (same as overwrite effectively on empty)
       setAiStatus(_summaryLine(extracted));
       mergeExtracted("blankOnly");
     }
   }
 
+  // ✅ Forgiving: always go to preview
   function handlePreview() {
-  setStatus("");
+    setStatus("");
 
-  // Forgiving mode: always allow preview.
-  // Still show a helpful message if incomplete.
-  if (coreWarnings.length) {
-    setStatus(`Draft preview (missing: ${coreWarnings.slice(0, 3).join(" • ")}${coreWarnings.length > 3 ? " • …" : ""})`);
+    if (coreWarnings.length) {
+      setStatus(
+        `Draft preview (missing: ${coreWarnings.slice(0, 3).join(" • ")}${coreWarnings.length > 3 ? " • …" : ""})`
+      );
+    }
+
+    const params = new URLSearchParams();
+    (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
+      if (form[k]) params.set(k, String(form[k]));
+    });
+
+    if (pasteText.trim()) params.set("sourceNotes", pasteText.trim());
+
+    window.location.href = `/preview?${params.toString()}`;
   }
-
-  const params = new URLSearchParams();
-  (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
-    if (form[k]) params.set(k, form[k]);
-  });
-
-  if (pasteText.trim()) params.set("sourceNotes", pasteText.trim());
-
-  window.location.href = `/preview?${params.toString()}`;
-}
 
   const labelCls = "ff-label mb-1";
   const inputCls = "ff-input";
@@ -464,9 +444,6 @@ export default function CreatePage() {
       <div className="ff-container max-w-4xl">
         <header className="-mt-4 sm:-mt-6 pt-0">
           <div className="flex flex-col items-center text-center">
-<div className="mt-2 inline-flex items-center justify-center rounded-full border border-black/15 bg-white/70 px-3 py-1 text-[11px] font-extrabold tracking-[0.18em] text-black/60 shadow-[0_8px_22px_rgba(0,0,0,0.06)]">
-  BETA
-</div>
             <Image
               src="/branding/faffless-lockup26.png"
               alt="FAFFLESS"
@@ -475,6 +452,11 @@ export default function CreatePage() {
               priority
               className="h-auto w-[300px] sm:w-[420px] md:w-[520px] lg:w-[600px] drop-shadow-[0_10px_22px_rgba(0,0,0,0.14)]"
             />
+
+            {/* BETA badge */}
+            <div className="mt-2 inline-flex items-center justify-center rounded-full border border-black/15 bg-white/70 px-3 py-1 text-[11px] font-extrabold tracking-[0.18em] text-black/60 shadow-[0_8px_22px_rgba(0,0,0,0.06)]">
+              BETA
+            </div>
 
             <div className="-mt-1 max-w-3xl">
               <h1 className="ff-heroText text-[14px] sm:text-[28px] md:text-[40px] font-black tracking-tight text-black/82 leading-[1.38]">
@@ -492,22 +474,16 @@ export default function CreatePage() {
         <div className="mt-8 sm:mt-10 space-y-5 sm:space-y-6">
           {/* AI / EXTRACTOR */}
           <section className={panelCls}>
-            <details
-              className="ff-details"
-              open={aiOpen}
-              onToggle={(e) => setAiOpen((e.target as HTMLDetailsElement).open)}
-            >
+            <details className="ff-details" open={aiOpen} onToggle={(e) => setAiOpen((e.target as HTMLDetailsElement).open)}>
               <summary className="ff-summary">
-  <span className="flex-1 text-center">
-    <span className="block font-extrabold">
-      Auto-fill from notes (recommended)
-    </span>
-    <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-      Paste a quote / email / job notes — we’ll draft the invoice fields (files later)
-    </span>
-  </span>
-  <Chevron open={aiOpen} />
-</summary>
+                <span className="flex-1 text-center">
+                  <span className="block font-extrabold">Auto-fill from notes (recommended)</span>
+                  <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
+                    Paste a quote / email / job notes — we’ll draft the invoice fields (files later)
+                  </span>
+                </span>
+                <Chevron open={aiOpen} />
+              </summary>
 
               <div className="px-4 pb-4">
                 <div className="mt-2 grid grid-cols-1 gap-4">
@@ -520,9 +496,7 @@ export default function CreatePage() {
                         onChange={handleFiles}
                         className="block w-full text-sm text-black/70 file:mr-4 file:rounded-xl file:border-0 file:bg-black file:px-4 file:py-2 file:font-bold file:text-white hover:file:opacity-95"
                       />
-                      <div className="mt-3 text-xs text-black/55 leading-5">
-                        For now, use “Paste notes” below for best results.
-                      </div>
+                      <div className="mt-3 text-xs text-black/55 leading-5">For now, use “Paste notes” below for best results.</div>
                     </div>
                   </label>
 
@@ -542,11 +516,7 @@ export default function CreatePage() {
                       Auto-fill fields
                     </button>
 
-                    <button
-                      onClick={scrollToManual}
-                      className="ff-btn-secondary"
-                      type="button"
-                    >
+                    <button onClick={scrollToManual} className="ff-btn-secondary" type="button">
                       Skip and fill manually
                     </button>
                   </div>
@@ -559,37 +529,23 @@ export default function CreatePage() {
 
           {/* MANUAL */}
           <section className={panelCls} ref={manualTopRef}>
-            <details
-              className="ff-details"
-              open={manualOpen}
-              onToggle={(e) => setManualOpen((e.target as HTMLDetailsElement).open)}
-            >
+            <details className="ff-details" open={manualOpen} onToggle={(e) => setManualOpen((e.target as HTMLDetailsElement).open)}>
               <summary className="ff-summary">
-  <span className="flex-1 text-center">
-    <span className="block font-extrabold">
-      Auto-fill from notes (recommended)
-    </span>
-    <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-      Paste a quote / email / job notes — we’ll draft the invoice fields (files later)
-    </span>
-  </span>
-  <Chevron open={aiOpen} />
-</summary>
+                <span className="flex-1 text-center">
+                  <span className="block font-extrabold">Manual fields</span>
+                  <span className="block text-[11px] font-semibold text-black/55 mt-0.5">Fill in only what you need</span>
+                </span>
+                <Chevron open={manualOpen} />
+              </summary>
 
               <div className="px-4 pb-4">
                 <div className="mt-2 grid grid-cols-1 gap-3">
                   {/* BUYER */}
-                  <details
-                    className="ff-details"
-                    open={buyerOpen}
-                    onToggle={(e) => setBuyerOpen((e.target as HTMLDetailsElement).open)}
-                  >
+                  <details className="ff-details" open={buyerOpen} onToggle={(e) => setBuyerOpen((e.target as HTMLDetailsElement).open)}>
                     <summary className="ff-summary">
                       <span>
                         Buyer details
-                        <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                          Who the invoice is for
-                        </span>
+                        <span className="block text-[11px] font-semibold text-black/55 mt-0.5">Who the invoice is for</span>
                       </span>
                       <Chevron open={buyerOpen} />
                     </summary>
@@ -607,9 +563,7 @@ export default function CreatePage() {
                         </label>
 
                         <div className="rounded-2xl border border-black/10 bg-white/60 p-3">
-                          <div className="text-[12px] font-extrabold text-black/70">
-                            E-invoice delivery (optional)
-                          </div>
+                          <div className="text-[12px] font-extrabold text-black/70">E-invoice delivery (optional)</div>
                           <div className="mt-1 text-[11px] font-semibold text-black/55 leading-5">
                             If the customer is on Peppol, they’ll give you an Endpoint ID and a scheme.
                           </div>
@@ -719,17 +673,11 @@ export default function CreatePage() {
                   </details>
 
                   {/* SELLER */}
-                  <details
-                    className="ff-details"
-                    open={sellerOpen}
-                    onToggle={(e) => setSellerOpen((e.target as HTMLDetailsElement).open)}
-                  >
+                  <details className="ff-details" open={sellerOpen} onToggle={(e) => setSellerOpen((e.target as HTMLDetailsElement).open)}>
                     <summary className="ff-summary">
                       <span>
                         Seller details
-                        <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                          Your business details
-                        </span>
+                        <span className="block text-[11px] font-semibold text-black/55 mt-0.5">Your business details</span>
                       </span>
                       <Chevron open={sellerOpen} />
                     </summary>
@@ -822,11 +770,7 @@ export default function CreatePage() {
                   </details>
 
                   {/* INVOICE */}
-                  <details
-                    className="ff-details"
-                    open={invoiceOpen}
-                    onToggle={(e) => setInvoiceOpen((e.target as HTMLDetailsElement).open)}
-                  >
+                  <details className="ff-details" open={invoiceOpen} onToggle={(e) => setInvoiceOpen((e.target as HTMLDetailsElement).open)}>
                     <summary className="ff-summary">
                       <span>
                         Invoice details
@@ -841,42 +785,24 @@ export default function CreatePage() {
                       <div className="mt-2 grid grid-cols-1 gap-3">
                         <label className={fieldWrap}>
                           <div className={labelCls}>Invoice number</div>
-                          <input
-                            value={form.invoiceNo}
-                            onChange={(e) => setField("invoiceNo", e.target.value)}
-                            className={inputCls}
-                          />
+                          <input value={form.invoiceNo} onChange={(e) => setField("invoiceNo", e.target.value)} className={inputCls} />
                         </label>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <label className={fieldWrap}>
                             <div className={labelCls}>Invoice date</div>
-                            <input
-                              type="date"
-                              value={form.issueDate}
-                              onChange={(e) => setField("issueDate", e.target.value)}
-                              className={inputCls}
-                            />
+                            <input type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} className={inputCls} />
                           </label>
                           <label className={fieldWrap}>
                             <div className={labelCls}>Due date</div>
-                            <input
-                              type="date"
-                              value={form.dueDate}
-                              onChange={(e) => setField("dueDate", e.target.value)}
-                              className={inputCls}
-                            />
+                            <input type="date" value={form.dueDate} onChange={(e) => setField("dueDate", e.target.value)} className={inputCls} />
                           </label>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <label className={fieldWrap}>
                             <div className={labelCls}>Currency</div>
-                            <select
-                              value={form.currency}
-                              onChange={(e) => setField("currency", e.target.value)}
-                              className={inputCls}
-                            >
+                            <select value={form.currency} onChange={(e) => setField("currency", e.target.value)} className={inputCls}>
                               <option value="GBP">GBP (£)</option>
                               <option value="EUR">EUR (€)</option>
                               <option value="USD">USD ($)</option>
@@ -885,22 +811,13 @@ export default function CreatePage() {
 
                           <label className={fieldWrap}>
                             <div className={labelCls}>PO number</div>
-                            <input
-                              value={form.poNumber}
-                              onChange={(e) => setField("poNumber", e.target.value)}
-                              placeholder="Optional"
-                              className={inputCls}
-                            />
+                            <input value={form.poNumber} onChange={(e) => setField("poNumber", e.target.value)} placeholder="Optional" className={inputCls} />
                           </label>
                         </div>
 
                         <label className={fieldWrap}>
                           <div className={labelCls}>Invoice type (MVP)</div>
-                          <select
-                            value={form.invoiceTypeCode}
-                            onChange={(e) => setField("invoiceTypeCode", e.target.value)}
-                            className={inputCls}
-                          >
+                          <select value={form.invoiceTypeCode} onChange={(e) => setField("invoiceTypeCode", e.target.value)} className={inputCls}>
                             <option value="380">380 — Commercial invoice</option>
                             <option value="381">381 — Credit note (later)</option>
                           </select>
@@ -927,17 +844,12 @@ export default function CreatePage() {
                           />
                         </label>
 
-                        <details
-                          className="ff-details mt-2"
-                          open={vatOpen}
-                          onToggle={(e) => setVatOpen((e.target as HTMLDetailsElement).open)}
-                        >
+                        {/* VAT */}
+                        <details className="ff-details mt-2" open={vatOpen} onToggle={(e) => setVatOpen((e.target as HTMLDetailsElement).open)}>
                           <summary className="ff-summary">
                             <span>
                               VAT + tax IDs
-                              <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                                Keep closed unless needed
-                              </span>
+                              <span className="block text-[11px] font-semibold text-black/55 mt-0.5">Keep closed unless needed</span>
                             </span>
                             <Chevron open={vatOpen} />
                           </summary>
@@ -948,7 +860,7 @@ export default function CreatePage() {
                                 <div className={labelCls}>Are you VAT registered?</div>
                                 <select
                                   value={form.vatRegistered}
-                                  onChange={(e) => setField("vatRegistered", e.target.value as YesNo)}
+                                  onChange={(e) => setField("vatRegistered", e.target.value)}
                                   className={inputCls}
                                 >
                                   <option value="yes">Yes</option>
@@ -970,11 +882,7 @@ export default function CreatePage() {
 
                                   <label className={fieldWrap}>
                                     <div className={labelCls}>VAT category (MVP)</div>
-                                    <select
-                                      value={form.vatCategoryCode}
-                                      onChange={(e) => setField("vatCategoryCode", e.target.value)}
-                                      className={inputCls}
-                                    >
+                                    <select value={form.vatCategoryCode} onChange={(e) => setField("vatCategoryCode", e.target.value)} className={inputCls}>
                                       <option value="S">S — Standard rated</option>
                                       <option value="Z">Z — Zero rated</option>
                                       <option value="E">E — Exempt</option>
@@ -1013,20 +921,11 @@ export default function CreatePage() {
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                                 <label className={fieldWrap}>
                                   <div className={labelCls}>UTR (optional)</div>
-                                  <input
-                                    value={form.sellerUTR}
-                                    onChange={(e) => setField("sellerUTR", e.target.value)}
-                                    placeholder="10-digit UTR"
-                                    className={inputCls}
-                                  />
+                                  <input value={form.sellerUTR} onChange={(e) => setField("sellerUTR", e.target.value)} placeholder="10-digit UTR" className={inputCls} />
                                 </label>
                                 <label className={fieldWrap}>
                                   <div className={labelCls}>Show UTR on invoice?</div>
-                                  <select
-                                    value={form.showUTR}
-                                    onChange={(e) => setField("showUTR", e.target.value as YesNo)}
-                                    className={inputCls}
-                                  >
+                                  <select value={form.showUTR} onChange={(e) => setField("showUTR", e.target.value)} className={inputCls}>
                                     <option value="no">No</option>
                                     <option value="yes">Yes</option>
                                   </select>
@@ -1036,17 +935,12 @@ export default function CreatePage() {
                           </div>
                         </details>
 
-                        <details
-                          className="ff-details mt-2"
-                          open={paymentOpen}
-                          onToggle={(e) => setPaymentOpen((e.target as HTMLDetailsElement).open)}
-                        >
+                        {/* Payment */}
+                        <details className="ff-details mt-2" open={paymentOpen} onToggle={(e) => setPaymentOpen((e.target as HTMLDetailsElement).open)}>
                           <summary className="ff-summary">
                             <span>
                               Bank / payment details
-                              <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                                Optional (shown on invoice/PDF)
-                              </span>
+                              <span className="block text-[11px] font-semibold text-black/55 mt-0.5">Optional (shown on invoice/PDF)</span>
                             </span>
                             <Chevron open={paymentOpen} />
                           </summary>
@@ -1055,11 +949,7 @@ export default function CreatePage() {
                             <div className="mt-2 grid grid-cols-1 gap-3">
                               <label className={fieldWrap}>
                                 <div className={labelCls}>Payment method</div>
-                                <select
-                                  value={form.paymentMethod}
-                                  onChange={(e) => setField("paymentMethod", e.target.value)}
-                                  className={inputCls}
-                                >
+                                <select value={form.paymentMethod} onChange={(e) => setField("paymentMethod", e.target.value)} className={inputCls}>
                                   <option>Bank transfer</option>
                                   <option>Card</option>
                                   <option>Cash</option>
@@ -1070,80 +960,45 @@ export default function CreatePage() {
 
                               <label className={fieldWrap}>
                                 <div className={labelCls}>Bank name</div>
-                                <input
-                                  value={form.bankName}
-                                  onChange={(e) => setField("bankName", e.target.value)}
-                                  placeholder="Optional"
-                                  className={inputCls}
-                                />
+                                <input value={form.bankName} onChange={(e) => setField("bankName", e.target.value)} placeholder="Optional" className={inputCls} />
                               </label>
 
                               <label className={fieldWrap}>
                                 <div className={labelCls}>Account name</div>
-                                <input
-                                  value={form.accountName}
-                                  onChange={(e) => setField("accountName", e.target.value)}
-                                  placeholder="Optional"
-                                  className={inputCls}
-                                />
+                                <input value={form.accountName} onChange={(e) => setField("accountName", e.target.value)} placeholder="Optional" className={inputCls} />
                               </label>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <label className={fieldWrap}>
                                   <div className={labelCls}>Sort code</div>
-                                  <input
-                                    value={form.sortCode}
-                                    onChange={(e) => setField("sortCode", e.target.value)}
-                                    placeholder="12-34-56"
-                                    className={inputCls}
-                                  />
+                                  <input value={form.sortCode} onChange={(e) => setField("sortCode", e.target.value)} placeholder="12-34-56" className={inputCls} />
                                 </label>
                                 <label className={fieldWrap}>
                                   <div className={labelCls}>Account number</div>
-                                  <input
-                                    value={form.accountNumber}
-                                    onChange={(e) => setField("accountNumber", e.target.value)}
-                                    placeholder="12345678"
-                                    className={inputCls}
-                                  />
+                                  <input value={form.accountNumber} onChange={(e) => setField("accountNumber", e.target.value)} placeholder="12345678" className={inputCls} />
                                 </label>
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <label className={fieldWrap}>
                                   <div className={labelCls}>IBAN</div>
-                                  <input
-                                    value={form.iban}
-                                    onChange={(e) => setField("iban", e.target.value)}
-                                    placeholder="Optional"
-                                    className={inputCls}
-                                  />
+                                  <input value={form.iban} onChange={(e) => setField("iban", e.target.value)} placeholder="Optional" className={inputCls} />
                                 </label>
                                 <label className={fieldWrap}>
                                   <div className={labelCls}>SWIFT/BIC</div>
-                                  <input
-                                    value={form.swift}
-                                    onChange={(e) => setField("swift", e.target.value)}
-                                    placeholder="Optional"
-                                    className={inputCls}
-                                  />
+                                  <input value={form.swift} onChange={(e) => setField("swift", e.target.value)} placeholder="Optional" className={inputCls} />
                                 </label>
                               </div>
                             </div>
                           </div>
                         </details>
 
-                        <details
-                          className="ff-details mt-2"
-                          open={notesOpen}
-                          onToggle={(e) => setNotesOpen((e.target as HTMLDetailsElement).open)}
-                        >
+                        {/* Notes */}
+                        <details className="ff-details mt-2" open={notesOpen} onToggle={(e) => setNotesOpen((e.target as HTMLDetailsElement).open)}>
                           <summary className="ff-summary">
                             <span>
                               Notes + email
-                              <span className="block text-[11px] font-semibold text-black/55 mt-0.5">
-                                Optional
-                              </span>
+                              <span className="block text-[11px] font-semibold text-black/55 mt-0.5">Optional</span>
                             </span>
                             <Chevron open={notesOpen} />
                           </summary>
@@ -1176,7 +1031,7 @@ export default function CreatePage() {
 
                         {coreWarnings.length ? (
                           <div className="rounded-2xl border border-black/10 bg-white/60 p-3 text-xs font-semibold text-black/60 leading-5">
-                            <div className="font-extrabold text-black/70">Before preview:</div>
+                            <div className="font-extrabold text-black/70">Optional checks (still ok to preview):</div>
                             <ul className="mt-1 list-disc pl-5 space-y-1">
                               {coreWarnings.slice(0, 5).map((w) => (
                                 <li key={w}>{w}</li>
@@ -1193,22 +1048,23 @@ export default function CreatePage() {
             </details>
           </section>
 
+          {/* Bottom buttons: Home (1/4) + Preview (3/4) */}
           <div className="pt-1">
-  <div className="grid grid-cols-4 gap-3">
-    <a
-      href="/"
-      className="col-span-1 inline-flex items-center justify-center rounded-2xl bg-white/65 py-4 font-extrabold transition border border-black/20 hover:bg-white/85 active:bg-white/70"
-    >
-      Home
-    </a>
+            <div className="grid grid-cols-4 gap-3">
+              <a
+                href="/"
+                className="col-span-1 inline-flex items-center justify-center rounded-2xl bg-white/65 py-4 font-extrabold transition border border-black/20 hover:bg-white/85 active:bg-white/70"
+              >
+                Home
+              </a>
 
-    <button onClick={handlePreview} className="ff-btn-primary col-span-3">
-      Preview draft
-    </button>
-  </div>
+              <button onClick={handlePreview} className="ff-btn-primary col-span-3">
+                Preview draft
+              </button>
+            </div>
 
-  <div className="mt-3 text-center text-xs text-black/70 break-words">{status}</div>
-</div>
+            <div className="mt-3 text-center text-xs text-black/70 break-words">{status}</div>
+          </div>
         </div>
       </div>
 
@@ -1216,9 +1072,7 @@ export default function CreatePage() {
       {showApplyPrompt && pendingExtract ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4">
           <div className="w-full max-w-lg rounded-[28px] border border-black/10 bg-white p-5 shadow-[0_30px_90px_rgba(0,0,0,0.25)]">
-            <div className="text-[16px] font-black text-black/85">
-              Apply auto-fill to your form?
-            </div>
+            <div className="text-[16px] font-black text-black/85">Apply auto-fill to your form?</div>
             <div className="mt-2 text-sm font-semibold text-black/65 leading-6">
               You’ve already started typing. Choose how to apply the draft:
             </div>
@@ -1229,17 +1083,11 @@ export default function CreatePage() {
             </div>
 
             <div className="mt-5 grid grid-cols-1 gap-3">
-              <button
-                className="ff-btn-primary"
-                onClick={() => mergeExtracted("blankOnly")}
-              >
+              <button className="ff-btn-primary" onClick={() => mergeExtracted("blankOnly")}>
                 Fill blanks only (recommended)
               </button>
 
-              <button
-                className="ff-btn-secondary"
-                onClick={() => mergeExtracted("overwrite")}
-              >
+              <button className="ff-btn-secondary" onClick={() => mergeExtracted("overwrite")}>
                 Overwrite my fields with the draft
               </button>
 
@@ -1260,8 +1108,7 @@ export default function CreatePage() {
 
       <style jsx global>{`
         .ff-heroText {
-          text-shadow: 0 1px 0 rgba(255, 255, 255, 0.92),
-            0 10px 28px rgba(0, 0, 0, 0.08);
+          text-shadow: 0 1px 0 rgba(255, 255, 255, 0.92), 0 10px 28px rgba(0, 0, 0, 0.08);
         }
       `}</style>
     </main>
