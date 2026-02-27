@@ -5,7 +5,7 @@
   --background: #ffffff;
   --foreground: #0b0b0b;
 
-  /* Warm panel tone (replaces harsh #FFF6D6 blocks) */
+  /* Warm panel tone */
   --panel-warm: rgba(255, 246, 214, 0.72);
   --panel-warm-strong: rgba(255, 246, 214, 0.82);
 
@@ -28,78 +28,19 @@ body {
   margin: 0;
   color: var(--foreground);
   overflow-x: hidden;
-  position: relative;
 
-  /* Force Geist everywhere (including non-tailwind elements) */
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-    Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-
-  /* Hills background */
-  background-image: url("/faffless-bg.png");
-  background-size: cover;
-  background-position: center 72%;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  /* Use your Next font variable (Manrope sets --font-sans in layout.tsx) */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+    Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-/* Ensure form controls never fall back to default Arial look */
+/* Ensure form controls inherit font */
 input,
 select,
 textarea,
 button {
   font: inherit;
   letter-spacing: inherit;
-}
-
-/* Readability veil */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-
-  /* Slightly calmer veil; keeps background visible but reduces glare */
-  background:
-    radial-gradient(
-      1200px 700px at 50% 6%,
-      rgba(255, 255, 255, 0.62),
-      rgba(255, 255, 255, 0.22) 55%,
-      rgba(255, 255, 255, 0.12) 100%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.20) 0%,
-      rgba(255, 255, 255, 0.10) 35%,
-      rgba(255, 255, 255, 0.16) 100%
-    );
-}
-
-/* Cloud wisps overlay */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-
-  background:
-    radial-gradient(ellipse 220px 90px at 12% 12%, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(ellipse 260px 110px at 28% 10%, rgba(255, 255, 255, 0.44), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(ellipse 240px 100px at 46% 13%, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(ellipse 240px 95px at 66% 11%, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(ellipse 280px 120px at 82% 13%, rgba(255, 255, 255, 0.40), rgba(255, 255, 255, 0) 74%),
-    radial-gradient(ellipse 220px 90px at 92% 18%, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 74%),
-    radial-gradient(circle 60px at 18% 20%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(circle 70px at 76% 22%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 72%);
-  filter: blur(0.2px);
-  opacity: 0.85;
-}
-
-/* Keep app above overlays */
-main {
-  position: relative;
-  z-index: 1;
 }
 
 /* ---- Tailwind base polish helpers ---- */
