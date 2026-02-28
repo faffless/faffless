@@ -444,20 +444,19 @@ export default function CreatePage() {
       <div className="ff-container max-w-4xl">
         <header className="-mt-4 sm:-mt-6 pt-0">
           <div className="flex flex-col items-center text-center">
-            {/* BETA badge */}
-            <div className="mt-2 inline-flex items-center justify-center rounded-full border border-black/15 bg-white/70 px-3 py-1 text-[11px] font-extrabold tracking-[0.18em] text-black/60 shadow-[0_8px_22px_rgba(0,0,0,0.06)]">
-              BETA
-            </div>
-<Image
-              src="/branding/faffless-lockup30.png"
+            <Image
+              src="/branding/faffless-lockup26.png"
               alt="FAFFLESS"
               width={1200}
               height={400}
               priority
-              className="h-auto w-[300px] sm:w-[420px] md:w-[520px] drop-shadow-[0_10px_22px_rgba(0,0,0,0.14)]"
+              className="h-auto w-[300px] sm:w-[420px] md:w-[520px] lg:w-[600px] drop-shadow-[0_10px_22px_rgba(0,0,0,0.14)]"
             />
 
-            
+            {/* BETA badge */}
+            <div className="mt-2 inline-flex items-center justify-center rounded-full border border-black/15 bg-white/70 px-3 py-1 text-[11px] font-extrabold tracking-[0.18em] text-black/60 shadow-[0_8px_22px_rgba(0,0,0,0.06)]">
+              BETA
+            </div>
 
             <div className="-mt-1 max-w-3xl">
               <h1 className="ff-heroText text-[14px] sm:text-[28px] md:text-[40px] font-black tracking-tight text-black/82 leading-[1.38]">

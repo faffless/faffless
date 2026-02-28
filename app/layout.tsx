@@ -10,7 +10,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "FAFFLESS — Free and Simple E-invoicing",
+  title: "faffless — Free and Simple E-invoicing",
   description:
     "Free and simple e-invoicing for businesses and the self-employed. PDF optional. Built for future compliance.",
 };

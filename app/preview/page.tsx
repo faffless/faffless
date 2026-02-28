@@ -13,7 +13,7 @@ function safe(v: string | null) {
 function LandingLogoMini() {
   return (
     <Image
-      src="/branding/faffless-lockup26.png"
+      src="/branding/faffless-lockup30.png"
       alt="FAFFLESS"
       width={1200}
       height={400}
