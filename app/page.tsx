@@ -3,7 +3,7 @@ import Image from "next/image";
 export default function HomePage() {
   return (
     <main className="min-h-[100svh] w-full">
-      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col items-center px-6 pb-16 pt-2 text-center sm:pt-3 md:pt-4">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center px-6 pb-4 pt-2 text-center sm:pt-3 md:pt-4">
         {/* Hero */}
         <div className="w-full max-w-4xl">
           {/* Logo */}
@@ -19,51 +19,52 @@ export default function HomePage() {
           </div>
 
           <h1 className="mt-2 text-[22px] font-black leading-[1.2] tracking-tight text-black/82 sm:text-[28px] md:text-[40px]">
-            Free E-invoice Generator
+            Free and Easy E-invoice Generator
           </h1>
 
-          <p className="mt-4 text-[12px] font-semibold leading-snug text-black/66 sm:text-[15px] md:text-[17px]">
-            From April 2029, e-invoicing becomes mandatory for VAT-registered businesses.
-            <br />
-            Easily create and send e-invoices via peppol/endpoint using faffless
+          <p className="mx-auto mt-5 max-w-[42ch] text-[12px] font-semibold leading-snug text-black/66 sm:text-[15px] md:text-[17px]">
+            From April 2029, e-invoicing becomes mandatory for VAT-registered businesses. Easily create and send <span className="whitespace-nowrap">e-invoices</span> using faffless.
           </p>
 
           {/* Small “chips” row */}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {[
-              "Free",
-              "XML (structured)",
-              "PDF optional",
-              "Peppol-ready",
-              "Made for UK VAT",
-            ].map((t) => (
-              <span
-                key={t}
-                className="rounded-full border border-black/10 bg-white/60 px-3 py-1 text-[11px] font-extrabold text-black/60 shadow-[0_6px_18px_rgba(0,0,0,0.05)]"
-              >
-                {t}
-              </span>
-            ))}
+  "Free",
+  "No signup",
+  "Just generate & export",
+  "XML (structured)",
+  "PDF optional",
+  "Peppol-ready",
+  "Made for UK VAT",
+].map((t) => (
+  <span
+    key={t}
+    className="rounded-full border border-black/10 bg-white/60 px-3 py-1 text-[11px] font-extrabold text-black/60 shadow-[0_6px_18px_rgba(0,0,0,0.05)]"
+  >
+    {t}
+  </span>
+))}
           </div>
 
           {/* CTAs */}
           {/* CTAs */}
-<div className="mt-6 flex flex-col items-center gap-3">
+<div className="mt-5 flex flex-col items-center gap-2">
   <a
-    href="/create"
-    className="inline-flex items-center justify-center rounded-2xl bg-black px-6 py-4 text-sm font-extrabold tracking-wide text-white shadow-[0_14px_40px_rgba(0,0,0,0.18)] transition hover:opacity-95 active:opacity-90 sm:text-base"
-  >
-    Try it out →
-  </a>
+  href="/create"
+  className="group mx-auto inline-flex w-full max-w-3xl items-center justify-center rounded-2xl border border-black/15 bg-[#FBF3D6] px-8 py-4 text-[16px] font-extrabold tracking-wide text-black/80 shadow-[0_12px_30px_rgba(0,0,0,0.10)] transition hover:-translate-y-[1px] hover:bg-[#FFF1C8] hover:shadow-[0_16px_40px_rgba(0,0,0,0.12)] active:translate-y-0 active:shadow-[0_10px_24px_rgba(0,0,0,0.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30"
+>
+  <span className="flex items-center gap-3">
+    <span>Try it out</span>
+    <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
+  </span>
+</a>
 </div>
 
-          <p className="mt-3 text-[11px] font-semibold text-black/55">
-            No signup. Just generate and export.
-          </p>
+          
         </div>
 
         {/* More info (warm accordion like /create) */}
-<section className="mt-8 w-full max-w-3xl text-left">
+<section className="mt-6 w-full max-w-3xl text-left">
   <div className="ff-panel-warm overflow-hidden p-4 sm:p-5">
     <details className="ff-details" /* add `open` here if you want default open */>
       <summary className="ff-summary">
@@ -148,7 +149,7 @@ export default function HomePage() {
           <details className="ff-details">
             <summary className="ff-summary">
               <span className="flex-1 text-center">
-                What this means for small businesses (practical)
+                What this means for small businesses
               </span>
               <span className="text-black/50 text-lg leading-none">+</span>
             </summary>
@@ -232,9 +233,9 @@ export default function HomePage() {
 
             <div className="px-4 pb-4 -mt-1 text-sm font-semibold text-black/65 leading-relaxed">
               <p className="mt-3">
-                fafflessVAT.co.uk and nofaffVAT.co.uk is a UK-focused{" "}
-                <strong>e-invoicing</strong> and <strong>invoice XML</strong> education page that will soon provide a free{" "}
-                <strong>e-invoice XML generator</strong>.
+                fafflessfinance.com, fafflessfinance.co.uk, faffless.io, fafflessVAT.co.uk and nofaffVAT.co.uk is a UK-focused{" "}
+                <strong>e-invoicing</strong> and <strong>invoice XML</strong> education page that provides a free{" "}
+                <strong>e-invoice XML generator (currently for download only)</strong>.
               </p>
 
               <div className="mt-5 rounded-2xl border border-black/10 bg-white/60 p-4">
@@ -262,12 +263,21 @@ export default function HomePage() {
 </section>
 
         {/* Contact */}
-        <p className="mt-7 text-xs font-semibold text-black/55">
-          Contact:{" "}
-          <a className="underline" href="mailto:hello@fafflessvat.co.uk">
-            hello@fafflessvat.co.uk
-          </a>
-        </p>
+        {/* Contact */}
+<p className="mt-7 text-xs font-semibold text-black/55">
+  Contact:{" "}
+  <a className="underline" href="mailto:hello@fafflessvat.co.uk">
+    hello@fafflessvat.co.uk
+  </a>
+</p>
+
+{/* Footer links */}
+<div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs font-extrabold text-black/55">
+  <a className="underline" href="/privacy">Privacy</a>
+  <a className="underline" href="/terms">Terms</a>
+  <a className="underline" href="/security">Security</a>
+  <a className="underline" href="/contact">Contact</a>
+</div>
       </div>
     </main>
   );
