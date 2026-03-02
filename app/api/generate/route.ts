@@ -7,6 +7,13 @@ function safe(v: unknown) {
   return String(v ?? "").trim();
 }
 
+function iso2Country(v: unknown) {
+  const c = safe(v).toUpperCase();
+  if (!c) return "GB";
+  if (c === "UK") return "GB";
+  return c;
+}
+
 function toNumber(v: string) {
   const n = Number(String(v).replace(/[^\d.]/g, ""));
   return Number.isFinite(n) ? n : 0;
@@ -18,8 +25,10 @@ function money2(n: number) {
 
 // For MVP we keep this minimal.
 // Later we will replace these with exact Peppol BIS Billing 3.0 identifiers.
-const DEFAULT_CUSTOMIZATION_ID = "urn:peppol:bis:billing:3.0";
-const DEFAULT_PROFILE_ID = "urn:peppol:profile:billing:01:1.0";
+const DEFAULT_CUSTOMIZATION_ID =
+  "urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0";
+const DEFAULT_PROFILE_ID =
+  "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0";
 
 export async function POST(req: Request) {
   try {
@@ -42,7 +51,7 @@ export async function POST(req: Request) {
     const sellerAddress2 = safe(data.sellerAddress2);
     const sellerCity = safe(data.sellerCity);
     const sellerPostcode = safe(data.sellerPostcode);
-    const sellerCountry = safe(data.sellerCountry) || "UK";
+    const sellerCountry = iso2Country(data.sellerCountry);
 
     const buyerName = safe(data.buyerName) || "Buyer";
     const buyerEmail = safe(data.buyerEmail);
@@ -51,7 +60,7 @@ export async function POST(req: Request) {
     const buyerAddress2 = safe(data.buyerAddress2);
     const buyerCity = safe(data.buyerCity);
     const buyerPostcode = safe(data.buyerPostcode);
-    const buyerCountry = safe(data.buyerCountry) || "UK";
+    const buyerCountry = iso2Country(data.buyerCountry);
 
     // Endpoint (scheme + id)
     const buyerEndpointScheme = safe(data.buyerEInvoiceScheme);
@@ -346,6 +355,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    return new NextResponse(err?.message || "Bad Request", { status: 400 });
-  }
+  console.error("API /api/generate error:", err);
+  return new NextResponse(
+    JSON.stringify({ error: err?.message || String(err) }),
+    { status: 400, headers: { "Content-Type": "application/json" } }
+  );
+}
 }

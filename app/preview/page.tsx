@@ -222,9 +222,10 @@ function PreviewPageContent() {
       });
 
       if (!res.ok) {
-        setStatus(`Error: ${res.status} ${res.statusText}`);
-        return;
-      }
+  const body = await res.text().catch(() => "");
+  setStatus(`Error: ${res.status} ${res.statusText}${body ? ` — ${body}` : ""}`);
+  return;
+}
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -594,10 +595,7 @@ function PreviewPageContent() {
           <div className="mt-4 text-center text-xs text-black/60">Other options</div>
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <button
-  onClick={() => setStatus("XML download is in progress (BETA). Coming very soon.")}
-  className={btnSecondary}
->
+            <button onClick={() => downloadFrom("/api/generate", "invoice.xml")} className={btnSecondary}>
   Download e-invoice XML
   <div className="text-[11px] font-semibold text-black/55 mt-1">
     Structured file for systems
