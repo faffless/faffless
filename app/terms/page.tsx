@@ -24,7 +24,7 @@ export default function TermsPage() {
         <div>
           <h2 className="text-xl font-black text-black/80">1) Who we are</h2>
           <p className="mt-2 text-black/70 leading-6">
-            The Service is operated by <span className="font-bold">YOUR LEGAL NAME / BUSINESS NAME</span> (“we”, “us”).
+            The Service is operated by <span className="font-bold">fafflessvat.co.uk</span> (“we”, “us”).
             <br />
             Contact:{" "}
             <a className="underline" href="mailto:hello@fafflessvat.co.uk">

@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <div>
           <h2 className="text-xl font-black text-black/80">Who we are</h2>
           <p className="mt-2 text-black/70 leading-6">
-            This website is operated by <span className="font-bold">YOUR LEGAL NAME / BUSINESS NAME</span>{" "}
+            This website is operated by <span className="font-bold">fafflessvat.co.uk / fafflessvat.co.uk</span>{" "}
             (“we”, “us”, “our”).
           </p>
 
@@ -37,15 +37,9 @@ export default function PrivacyPage() {
               </a>
             </li>
             <li>
-              Address: <span className="font-bold">YOUR BUSINESS ADDRESS</span>
+              Address: <span className="font-bold">fafflessvat.co.uk</span>
             </li>
-            <li>
-              Company number (if applicable): <span className="font-bold">YOUR COMPANY NUMBER</span>
-            </li>
-            <li>
-              VAT number (if applicable): <span className="font-bold">YOUR VAT NUMBER</span>
-            </li>
-          </ul>
+            </ul>
         </div>
 
         {/* What we collect */}
@@ -139,13 +133,13 @@ export default function PrivacyPage() {
 
           <ul className="mt-4 list-disc pl-6 space-y-2 text-black/70">
             <li>
-              Hosting provider: <span className="font-bold">Vercel</span> (or your actual host)
+              Hosting provider: <span className="font-bold">Vercel</span>
             </li>
             <li>
-              Email provider: <span className="font-bold">YOUR EMAIL PROVIDER</span>
+              Email provider: <span className="font-bold">fafflessvat.co.uk</span>
             </li>
             <li>
-              Analytics (if used): <span className="font-bold">NONE / YOUR ANALYTICS TOOL</span>
+              Analytics (if used): <span className="font-bold">fafflessvat.co.uk</span>
             </li>
           </ul>
 
@@ -176,8 +170,7 @@ export default function PrivacyPage() {
         <div>
           <h2 className="text-xl font-black text-black/80">Cookies</h2>
           <p className="mt-2 text-black/70 leading-6">
-            We use essential cookies required for the site to function. If we add optional analytics or marketing
-            cookies, we will update this notice and (where required) provide a consent choice.
+            We do not use cookies
           </p>
         </div>
 

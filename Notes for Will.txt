@@ -17,7 +17,7 @@ Update my site (GitHub + Vercel)
 3 Stage changes: git add -A
 
 git add -A
-git commit -m "analytics"
+git commit -m "update to footers"
 git push
 
 4 Commit: git commit -m "what I changed"
