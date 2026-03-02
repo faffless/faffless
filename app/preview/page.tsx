@@ -1,13 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 type Data = Record<string, string>;
 
-function safe(v: string | null) {
-  return (v ?? "").trim();
+function safe(v: unknown) {
+  return String(v ?? "").trim();
 }
 
 function LandingLogoMini() {
@@ -103,69 +102,37 @@ function endpointLabel(scheme: string, id: string) {
 }
 
 function PreviewPageContent() {
-  const sp = useSearchParams();
   const [status, setStatus] = useState("");
+const [data, setData] = useState<Data>({} as Data);
 
-  const data: Data = useMemo(() => {
-    const keys = [
-      "vatRegistered",
-      "showUTR",
+  useEffect(() => {
+  const raw = sessionStorage.getItem("faffless:draft");
+  if (!raw) {
+    setStatus("No draft found. Please go back and create one first.");
+    return;
+  }
 
-      "sellerName",
-      "sellerEmail",
-      "sellerPhone",
-      "sellerVat",
-      "sellerUTR",
-      "sellerAddress1",
-      "sellerAddress2",
-      "sellerCity",
-      "sellerPostcode",
-      "sellerCountry",
+  try {
+    const payload = JSON.parse(raw);
 
-      "buyerName",
-      "buyerEmail",
-      "buyerVat",
-      "buyerEInvoiceScheme",
-      "buyerEInvoiceId",
-      "buyerAddress1",
-      "buyerAddress2",
-      "buyerCity",
-      "buyerPostcode",
-      "buyerCountry",
-
-      "invoiceNo",
-      "issueDate",
-      "dueDate",
-      "currency",
-      "poNumber",
-      "invoiceTypeCode",
-
-      "itemDescription",
-      "quantity",
-      "unitCode",
-      "netAmount",
-      "vatCategoryCode",
-      "vatRate",
-      "vatAmount",
-      "totalAmount",
-
-      "paymentMethod",
-      "bankName",
-      "accountName",
-      "sortCode",
-      "accountNumber",
-      "iban",
-      "swift",
-
-      "notes",
-      "sendToEmail",
-      "sourceNotes",
-    ] as const;
-
+    // payload.form contains all the fields from /create
+    // we make sure everything is a string (your preview expects strings)
+    const form = payload?.form || {};
     const out: Data = {};
-    keys.forEach((k) => (out[k] = safe(sp.get(k))));
-    return out;
-  }, [sp]);
+
+    Object.keys(form).forEach((k) => {
+      const v = form[k];
+      out[k] = safe(v);
+    });
+
+    // If you want to use notes later:
+    // out["sourceNotes"] = safe(payload?.sourceNotes || "");
+
+    setData(out);
+  } catch {
+    setStatus("Could not load draft. Please go back and try again.");
+  }
+}, []);
 
   const buyerDisplay = data.buyerName || "your customer";
 
@@ -230,10 +197,12 @@ function PreviewPageContent() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+a.href = url;
+a.download = filename;
+document.body.appendChild(a);
+a.click();
+a.remove();
+setTimeout(() => URL.revokeObjectURL(url), 1000);
 
       setStatus(`Downloaded ${filename}`);
     } catch {

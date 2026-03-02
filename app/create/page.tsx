@@ -416,23 +416,24 @@ export default function CreatePage() {
 
   // ✅ Forgiving: always go to preview
   function handlePreview() {
-    setStatus("");
+  setStatus("");
 
-    if (coreWarnings.length) {
-      setStatus(
-        `Draft preview (missing: ${coreWarnings.slice(0, 3).join(" • ")}${coreWarnings.length > 3 ? " • …" : ""})`
-      );
-    }
-
-    const params = new URLSearchParams();
-    (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
-      if (form[k]) params.set(k, String(form[k]));
-    });
-
-    if (pasteText.trim()) params.set("sourceNotes", pasteText.trim());
-
-    window.location.href = `/preview?${params.toString()}`;
+  if (coreWarnings.length) {
+    setStatus(
+      `Draft preview (missing: ${coreWarnings.slice(0, 3).join(" • ")}${coreWarnings.length > 3 ? " • …" : ""})`
+    );
   }
+
+  // 1) Save the draft in the browser (temporary)
+  const payload = {
+    form,
+    sourceNotes: pasteText.trim(),
+  };
+  sessionStorage.setItem("faffless:draft", JSON.stringify(payload));
+
+  // 2) Go to /preview with no long URL
+  window.location.href = "/preview";
+}
 
   const labelCls = "ff-label mb-1";
   const inputCls = "ff-input";
