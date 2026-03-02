@@ -34,7 +34,7 @@ export default function HomePage() {
   "Just generate & export",
   "XML (structured)",
   "PDF optional",
-  "Peppol-ready",
+  "Peppol-format",
   "Made for UK VAT",
 ].map((t) => (
   <span
@@ -54,7 +54,7 @@ export default function HomePage() {
   className="group mx-auto inline-flex w-full max-w-3xl items-center justify-center rounded-2xl border border-black/15 bg-[#FBF3D6] px-8 py-4 text-[16px] font-extrabold tracking-wide text-black/80 shadow-[0_12px_30px_rgba(0,0,0,0.10)] transition hover:-translate-y-[1px] hover:bg-[#FFF1C8] hover:shadow-[0_16px_40px_rgba(0,0,0,0.12)] active:translate-y-0 active:shadow-[0_10px_24px_rgba(0,0,0,0.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black/30"
 >
   <span className="flex items-center gap-3">
-    <span>Try it out</span>
+    <span>Try it out. It runs in your browser and we don’t store your invoices”</span>
     <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
   </span>
 </a>
